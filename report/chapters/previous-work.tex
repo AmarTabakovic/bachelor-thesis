@@ -1,0 +1,120 @@
+\chapter{Previous Work}
+This chapter aims to present ideas from already existing approaches.
+First, the author's 
+predecessor project on basic terrain LOD rendering is summarized.
+Afterwards, an overview of literature and software systems for terrain streaming/paging is given,
+in which their central ideas are outlined.
+
+\section{Review of Project 2 -- 3D Terrain with Level of Detail}
+This thesis is the logical continuation of 
+the author's preceeding project \textit{3D Terrain with Level of Detail} \cite{p2}
+as part of the course ``Project 2'' at the Bern University of Applied Sciences.
+In said project, the basics of terrain rendering and existing approaches were 
+studied and evaluated and a simple terrain renderer named \textit{ATLOD} was developed.
+A treatment of terrain rendering with streaming/paging was explicitly not part of the preceeding project.
+This section aims to summarize the most important parts of the preceeding project.
+
+\subsection{Implemented Terrain LOD Algorithm}
+The implemented LOD algorithm is mainly based on GeoMipMapping 
+and certain elements from GPU-based Geometry Clipmaps TODO cite. 
+The terrain gets split up into logical blocks of size $blockSize = 2^n + 1$ for some $n \in \mathbb{N}$,
+where each block contains information such as current LOD level, its world-space center point, the extent points of its AABB,
+current border permutation, and more.
+A single grid-like flat mesh of side length $blockSize$ is stored on the vertex and index buffer of the terrain.
+The indices are stored such that the flat mesh is split into its center and border area. The first part of the index buffer 
+contains indices of the center area at every LOD resolution, from highest to lowest, 
+and the second part of the index buffer contains the indices of the border area 
+at every LOD resolution and for every of the $2^4=16$ possible border permutations. 
+A border permutation is a 4-tuple $(l,r,t,b)$ (the variables corresponding to left, right, top and bottom) 
+representing a border area, set up such that each element of the 4-tuple is set to 1 if the neighboring block 
+on the corresponding side has a lower LOD level, otherwise 0. The arrangement 
+of indices with border permutations is for preventing cracks from occurring in the terrain.
+The heightmap is stored as a texture image on the GPU.
+
+At runtime, in a first step the LOD level and current border permutation of each block 
+is updated. The new LOD level is calculated using the 3-dimensional distance between the camera 
+and the block's center point.
+In a second step, each block is intersected with the view-frustum 
+and if they intersect, the block gets rendered with two draw-calls.
+In the vertex shader, the flat mesh gets translated by the block's world-space center point
+and the heightmap is sampled for a $y$-value, which is then used to displace the $y$-coordinate of the vertex. 
+In the fragment shader, the overlay texture is applied and Phong shading is calculated.
+The normal vectors for Phong shading are calculated using the four orthogonally neighboring points 
+in the heightmap. Finally, a simple distance fog is applied.
+
+\subsection{Strengths and Limitations}
+The main strengths of the implemented algorithm are
+its low GPU memory usage.
+
+On the other hand, the main limitations are that it lacks vertex morphing for preventing
+pops during LOD level changes, the organization of blocks into a quadtree for 
+more efficient view-frustum culling and some other optimizations 
+such as instanced rendering.
+
+\section{Literature}
+Real-time terrain data streaming has been the topic of research, albeit with a lower 
+focus in comparison to terrain LOD algorithms \cite{vtpothers}.
+
+\subsection{Level of Detail for 3D Graphics}
+Subchapter ``7.2.5 Paging, Streaming, and Out of Core''
+in the the book \textit{Level of Detail for 3D Graphics} 
+by Luebke et al.~describes some basic background, existing approaches and relevant publications 
+related to terrain streaming. Although the book was published in the year 2003 and can be considered somewhat outdated 
+today, certain basic ideas might still hold today.
+
+\subsection{Geometry Clipmaps}
+GPU-based Geometry Clipmaps by Asirvatham and Hoppe is a terrain LOD algorithm
+based on nested grid-like rings centered around the camera. 
+
+\subsection{Adaptive Streaming and Rendering of Large Terrains:
+A Generic Solution}
+https://dspace5.zcu.cz/bitstream/11025/10885/1/Lerbour.pdf
+
+\subsection{CDLOD}
+Strugar describes some basic information on how the CDLOD algorithm can be extended to
+work with streaming \cite{cdlod}.
+Additionally, his public implementation of the CDLOD algorithm contains 
+a streaming-based variant (\textit{StreamingCDLOD}), which dynamically loads and offloads 
+terrain tiles based on the user's movement TODO cite.
+
+\section{Video Games and Game Engines}
+\subsection{Unreal Engine}
+TODO check out documentation 
+https://docs.unrealengine.com/5.3/en-US/level-streaming-in-unreal-engine
+
+\subsection{Far Cry 5}
+TODO check out 
+https://www.gdcvault.com/play/1025480/Terrain-Rendering-in-Far-Cry
+
+\subsection{Microsoft Flight Simulator}
+\textit{Microsoft Flight Simulator} is a video game developed by Asobo Studio and released in 2020.
+The video game allows the player to fly on the entire earth and uses various 
+data sources for representing the earth as accurately as possible.
+It received high praise for its TODO.
+
+At the GDC 2022, Fuentes presented the terrain system of Microsoft Flight Simulator,
+in which he described the data organization, system architecture, rendering process and many more aspects.
+
+The terrain system uses a number of sources for height data, overlay texturing, vegetation, bodies of water, cities
+and more.
+
+TODO check out
+https://www.gdcvault.com/play/1027581/Advanced-Graphics-Summit-Designing-the
+
+\subsection{Battlefield 3}
+TODO check out
+https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/gdc12-terrain-in-battlefield3.pdf
+
+\subsection{Red Engine 3}
+TODO Check out https://www.gdcvault.com/play/1020197/Landscape-Creation-and-Rendering-in
+
+\section{Geographic Information Systems}
+
+\subsection{OpenWebGlobe}
+\textit{OpenWebGlobe} is a project and software development kit written in JavaScript and 
+WebGL for rendering 3D globes on web browsers. 
+It was developed in TODO by TODO. 
+
+\subsection{Google Earth}
+\textit{Google Earth} is a 3D globe viewer by Google which is capable of rendering the earth, utilizing a number of data sources for its imagery and height data,
+which include Sentinel, TODO.

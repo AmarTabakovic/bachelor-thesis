@@ -1,0 +1,36 @@
+\chapter{StreamingATLOD}
+This chapter describes the implementation of \textit{StreamingATLOD} (\textbf{Streaming-A}ssisted 
+\textbf{T}errain \textbf{L}evel \textbf{o}f \textbf{D}etail (Renderer)).
+
+\section{Used Technologies}
+StreamingATLOD is written in C++17 and OpenGL 3.3. For compiling build files,
+CMake (minimum version 3.5) is used. ATLOD uses the following third-party
+libraries:
+\begin{itemize}
+  \item GLM:
+  \item GLEW:
+  \item GLFW:
+  \item Dear ImGui:
+  \item STB:
+  \item libwebp:
+\end{itemize}
+
+
+\section{Terrain LOD Algorithm}
+The implemented terrain LOD algorithm is based on \textit{Chunked LOD} by Ulrich TODO cite.
+Chunked LOD organizes the terrain into a quadtree, where each node represents a section of the terrain with data,
+such as heightmap and textures. Chunked LOD and its derived approaches are used in other large-scale terrain rendering systems, such as 
+TODO cite.
+
+\subsection{Quadtree Organisation}
+
+
+\subsection{Terrain Mesh}
+
+\subsection{Crack Prevention}
+
+\section{Map Projection}
+
+\section{Data Streaming}
+
+\section{Tile Caching}

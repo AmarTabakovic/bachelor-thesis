@@ -1,0 +1,15 @@
+[submodule "streaming-atlod/lib/glew"]
+	path = streaming-atlod/lib/glew
+	url = https://github.com/omniavinco/glew-cmake
+[submodule "streaming-atlod/lib/glfw"]
+	path = streaming-atlod/lib/glfw
+	url = https://github.com/glfw/glfw
+[submodule "streaming-atlod/lib/imgui"]
+	path = streaming-atlod/lib/imgui
+	url = https://github.com/ocornut/imgui.git
+[submodule "streaming-atlod/lib/glm"]
+	path = streaming-atlod/lib/glm
+	url = https://github.com/g-truc/glm
+[submodule "streaming-atlod/lib/libwebp"]
+	path = streaming-atlod/lib/libwebp
+	url = https://github.com/webmproject/libwebp

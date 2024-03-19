@@ -1,0 +1,35 @@
+\chapter{Theoretical Background}
+This chapter describes some background information 
+on computer graphics, terrain LOD and network programming.
+
+\section{Notation and Terminology}
+\subsection{Mathematical Notation}
+
+\subsection{Terminology}
+
+\section{Terrain Rendering}
+Terrain rendering refers to the process of displaying the terrain on the screen.
+
+\subsection{Data Representation}
+Terrain data can be represented in a number of ways.
+
+\subsection{Level of Detail}
+\textit{Level of Detail (LOD)} is the concept of reducing the complexity of a mesh 
+using various metrics to optimize rendering performance.
+Such metrics include the distance of the mesh to the camera,
+the dimensions of the mesh in screen-space and more.
+
+Terrain LOD algorithms can be categorized as follows.
+
+\paragraph{}
+
+Some of the most important terrain LOD algorithms are summarized in 
+chapter TODO.
+
+\section{Terrain Streaming}
+For visualizing very large terrains, 
+the main memory is often not large enough to hold the entire terrain data.
+In this case, terrain rendering systems often deploy 
+\textit{terrain streaming} (also called \textit{terrain paging}), which refers to the concept of dynamically 
+loading and offloading terrain data from the disk or from a network, such as the internet.
+
