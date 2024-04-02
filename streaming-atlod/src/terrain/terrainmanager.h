@@ -31,6 +31,8 @@ public:
     TerrainTile* _root;
 
     GridMesh* _gridMesh;
+    GridMesh* _gridMesh1;
+    GridMesh* _gridMesh2;
     SkirtMesh* _skirtMesh;
 
     unsigned _maxZoom;

@@ -3,6 +3,11 @@
 in vec3 FragPosition;
 in vec3 FragPos2;
 
+in vec2 lonlat;
+in vec2 mercXZ;
+in vec2 globalNormalizedXZ;
+in vec3 inNormal;
+
 out vec4 FragColor;
 
 uniform vec3 lightDirection;
@@ -29,6 +34,8 @@ uniform float tileWidth;
 uniform float yScale;
 uniform float zoom;
 
+uniform vec2 tileKey;
+
 vec3 calculateAmbient(vec3 lightColor, float strength);
 vec3 calculateDiffuse(vec3 lightColor);
 float calculateFog(float density);
@@ -42,22 +49,26 @@ void main()
    if (useWire < 0.5f) {
 
        float tw = tileWidth;
-       if (zoom != 0) tw -= 1;
+       tw -= 1;
 
-       vec2 texPos = vec2((FragPosition.x + 0.5 * tw) / (tw),
-                          (FragPosition.z + 0.5 * tw) / (tw));
+       float pi = 3.141592;
+       int pow2Zoom = 1 << int(zoom);
+
+       vec2 texPos = mercXZ;
 
        color = texture(overlayTexture, texPos).rgb;
        //color = vec3(0.4,0.4,0.4);
 
-       vec3 ambient = calculateAmbient(lightColor, 0.5f);
+       //vec3 ambient = calculateAmbient(lightColor, 0.5f);
+       vec3 ambient = calculateAmbient(lightColor, 0.1f);
        vec3 diffuse = calculateDiffuse(lightColor);
        color = (ambient + diffuse) * color;
+       //color = ambient * color;
 
        if (doFog > 0.5) {
            vec3 fogColour = skyColor;
            float fogFactor = calculateFog(fogDensity);
-           //color = mix(fogColour, color, fogFactor);
+           color = mix(fogColour, color, fogFactor);
        }
 
     } else {
@@ -74,8 +85,8 @@ vec3 calculateDiffuse(vec3 lightColor) {
     float tw = tileWidth;
     if (zoom != 0) tw -= 1;
 
-    vec2 texPos = vec2((FragPosition.x + 0.5 * tw)/ (tw),
-                       (FragPosition.z + 0.5 * tw)/ (tw));
+    vec2 texPos = mercXZ;//vec2((FragPosition.x + 0.5 * tw)/ (tw),
+                    //   (FragPosition.z + 0.5 * tw)/ (tw));
 
     /* Based on
      * https://www.slideshare.net/repii/terrain-rendering-in-frostbite-using-procedural-shader-splatting-presentation?type=powerpoint */
@@ -93,6 +104,7 @@ vec3 calculateDiffuse(vec3 lightColor) {
     float dz = (downHeightF - upHeightF);
 
     vec3 normal = normalize(vec3(dx, 2.0f, dz));
+    normal = normalize((normalize(normal) + normalize(inNormal)) * 0.5);
 
     vec3 lightDir = normalize(-lightDirection);
 
@@ -109,5 +121,5 @@ float calculateFog(float density) {
 }
 
 float calculateHeight(vec3 heightSample) {
-    return /*-10000*/ + ((heightSample.r * 256 * 256 + heightSample.g * 256 + heightSample.b) * 0.1) / 30 ; // / 2
+    return /*-10000*/ + ((heightSample.r * 256 * 256 + heightSample.g * 256 + heightSample.b) * 0.1) / 30.0f / 4.0f;
 }

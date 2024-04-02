@@ -40,7 +40,7 @@ glm::vec3 terrainColor = glm::vec3(120.0f, 117.0f, 115.0f) * (1.0f / 255.0f);
 
 glm::vec3 lightDirection = camera.front();
 bool doFog = true;
-float fogDensity = 0.006f;
+float fogDensity = 0.001;
 
 float yScale = 1.0f / 2.0f;
 
@@ -104,14 +104,14 @@ void run()
 
     // glFrontFace(GL_CCW);
     // glCullFace(GL_BACK);
-    // glEnable(GL_CULL_FACE);
+    glEnable(GL_CULL_FACE);
     glDisable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
 
     /* Load skybox */
     skybox = new Skybox();
     skybox->loadBuffers();
-    skybox->loadTexture("../data/skybox/" + skyboxFolderName + "/");
+    skybox->loadTexture("../../data/skybox/" + skyboxFolderName + "/");
 
     terrainManager = new TerrainManager();
     terrainManager->setup();

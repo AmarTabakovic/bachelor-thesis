@@ -2,6 +2,12 @@
 
 Shader::Shader() { }
 
+/**
+ * @brief Shader::Shader
+ *
+ * @param vertexPath
+ * @param fragmentPath
+ */
 Shader::Shader(const char* vertexPath, const char* fragmentPath)
 {
     int success;

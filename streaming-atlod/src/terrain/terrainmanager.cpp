@@ -10,7 +10,7 @@ TerrainManager::TerrainManager()
 
     Util::checkGlError("SHADER FAILED");
 
-    _tileSideLength = 64;
+    _tileSideLength = 128;
 
     _terrainShader.use();
     _terrainShader.setInt("overlayTexture", 0);
@@ -36,6 +36,12 @@ void TerrainManager::setup()
 {
     _gridMesh = new GridMesh(_tileSideLength);
     _gridMesh->load();
+
+    /*_gridMesh1 = new GridMesh(_tileSideLength * 2);
+    _gridMesh1->load();
+
+    _gridMesh2 = new GridMesh(_tileSideLength * 4);
+    _gridMesh2->load();*/
 
     _skirtMesh = new SkirtMesh(_tileSideLength);
     _skirtMesh->load();

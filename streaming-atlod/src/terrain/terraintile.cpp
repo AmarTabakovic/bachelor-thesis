@@ -7,9 +7,12 @@
 #include "gridmesh.h"
 #include "terrainmanager.h"
 
+#include "../mapprojections.h"
 #include <filesystem>
 #include <iostream>
 #include <webp/decode.h>
+
+unsigned TerrainTile::requestCount = 0;
 
 TerrainTile::TerrainTile(glm::vec3 worldSpaceCenterPos, TerrainManager* manager, unsigned zoom, std::pair<unsigned, unsigned> tileKey)
 {
@@ -21,6 +24,7 @@ TerrainTile::TerrainTile(glm::vec3 worldSpaceCenterPos, TerrainManager* manager,
 
 void TerrainTile::update(Camera& camera)
 {
+    // std::cout << requestCount << std::endl;
     updateRec(camera, 0);
 }
 
@@ -31,10 +35,17 @@ void TerrainTile::render(Camera& camera)
 
 bool TerrainTile::shouldSplit(Camera& camera)
 {
-    glm::vec3 tempVec = _worldSpaceCenterPos - camera.position();
+    glm::vec2 globalTileKeyCenter((_tileKey.first + 0.5f) / (1 << _zoom), (_tileKey.second + 0.5) / (1 << _zoom));
+    glm::vec2 p1Temp = MapProjections::globalTileXZToLonLat(globalTileKeyCenter);
+    glm::vec3 spherePos = MapProjections::geodeticToCartesian(glm::vec3(1000, 1000, 1000), glm::vec3(p1Temp.x, 0, p1Temp.y));
+
+    glm::vec3 tempVec = spherePos - camera.position();
+    // tempVec.y = 0;
     float distSquared = glm::dot(tempVec, tempVec);
-    float lodMetric = 100 * (1.0f / (float)(1 << _zoom));
-    if (distSquared < lodMetric * lodMetric)
+    float hypSquared = _terrainManager->_tileSideLength * _terrainManager->_tileSideLength * 0.75 * 0.75;
+    float oneOverLevelSquared = (1.0f / (float)(1 << _zoom)) * (1.0f / (float)(1 << _zoom));
+    float lodMetricSquared = hypSquared * oneOverLevelSquared;
+    if (distSquared < lodMetricSquared)
         return true;
     return false;
 }
@@ -48,9 +59,48 @@ void TerrainTile::updateRec(Camera& camera, unsigned level)
 
     _visible = true;
 
-    glm::vec3 p1 = _worldSpaceCenterPos - ((_terrainManager->_tileSideLength - 1) * (1.0f / (float)(1 << level))) / 2;
-    glm::vec3 p2 = _worldSpaceCenterPos + ((_terrainManager->_tileSideLength - 1) * (1.0f / (float)(1 << level))) / 2;
-    _visible = camera.insideViewFrustum(p1, p2);
+    /* TODO: Cleanup code and precompute some of this stuff on tile creation */
+    glm::vec2 globalTileKeyCenter((_tileKey.first + 0.5f) / (1 << _zoom), (_tileKey.second + 0.5) / (1 << _zoom));
+    float globalTileKeyP1X = globalTileKeyCenter.x + ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
+    float globalTileKeyP1Y = globalTileKeyCenter.y + ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
+    float globalTileKeyP2X = globalTileKeyCenter.x - ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
+    float globalTileKeyP2Y = globalTileKeyCenter.y - ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
+    float globalTileKeyP3X = globalTileKeyCenter.x + ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
+    float globalTileKeyP3Y = globalTileKeyCenter.y - ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
+    float globalTileKeyP4X = globalTileKeyCenter.x - ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
+    float globalTileKeyP4Y = globalTileKeyCenter.y + ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
+    glm::vec2 p1Temp = MapProjections::globalTileXZToLonLat(glm::vec2(globalTileKeyP1X, globalTileKeyP1Y));
+    glm::vec2 p2Temp = MapProjections::globalTileXZToLonLat(glm::vec2(globalTileKeyP2X, globalTileKeyP2Y));
+    glm::vec2 p3Temp = MapProjections::globalTileXZToLonLat(glm::vec2(globalTileKeyP3X, globalTileKeyP3Y));
+    glm::vec2 p4Temp = MapProjections::globalTileXZToLonLat(glm::vec2(globalTileKeyP4X, globalTileKeyP4Y));
+
+    /* TODO: The radius is hardcoded here just for testing, should be changed */
+    glm::vec3 spherePosP1 = MapProjections::geodeticToCartesian(glm::vec3(1000, 1000, 1000), glm::vec3(p1Temp.x, 0, p1Temp.y));
+    glm::vec3 spherePosP2 = MapProjections::geodeticToCartesian(glm::vec3(1000, 1000, 1000), glm::vec3(p2Temp.x, 0, p2Temp.y));
+    glm::vec3 spherePosP3 = MapProjections::geodeticToCartesian(glm::vec3(1000, 1000, 1000), glm::vec3(p3Temp.x, 0, p3Temp.y));
+    glm::vec3 spherePosP4 = MapProjections::geodeticToCartesian(glm::vec3(1000, 1000, 1000), glm::vec3(p4Temp.x, 0, p4Temp.y));
+
+    float maxX = std::max({ spherePosP1.x,
+        spherePosP2.x,
+        spherePosP3.x,
+        spherePosP4.x });
+    float maxY = std::max({ spherePosP1.y,
+        spherePosP2.y,
+        spherePosP3.y,
+        spherePosP4.y });
+    float minX = std::min({ spherePosP1.x,
+        spherePosP2.x,
+        spherePosP3.x,
+        spherePosP4.x });
+    float minY = std::min({ spherePosP1.y,
+        spherePosP2.y,
+        spherePosP3.y,
+        spherePosP4.y });
+
+    glm::vec3 p1(maxX, 0, maxY);
+    glm::vec3 p2(minX, 0, minY);
+
+    _visible = camera.insideViewFrustum(spherePosP1, spherePosP2);
 
     if (!_visible)
         return;
@@ -61,16 +111,18 @@ void TerrainTile::updateRec(Camera& camera, unsigned level)
         if (!_heightmapLoaded) {
             std::cout << "--- Tile " << _tileKey.first << ", " << _tileKey.second << std::endl;
             std::cout << "Loading heightmap" << std::endl;
-            std::string path = "../data/maptiler/dem/" + std::to_string(level) + "/" + std::to_string(std::get<0>(_tileKey)) + "/" + std::to_string(std::get<1>(_tileKey)) + ".webp";
+            std::string path = "../../data/maptiler/dem/" + std::to_string(level) + "/" + std::to_string(std::get<0>(_tileKey)) + "/" + std::to_string(std::get<1>(_tileKey)) + ".webp";
             loadHeightmap(path);
             _heightmapLoaded = true;
+            requestCount++;
         }
 
         if (!_overlayLoaded) {
             std::cout << "Loading overlay" << std::endl;
-            std::string path = "../data/maptiler/overlay/" + std::to_string(level) + "/" + std::to_string(std::get<0>(_tileKey)) + "/" + std::to_string(std::get<1>(_tileKey)) + ".jpg";
+            std::string path = "../../data/maptiler/overlay/" + std::to_string(level) + "/" + std::to_string(std::get<0>(_tileKey)) + "/" + std::to_string(std::get<1>(_tileKey)) + ".jpg";
             loadOverlay(path);
             _overlayLoaded = true;
+            requestCount++;
         }
 
         _toRender = true;
@@ -88,11 +140,6 @@ void TerrainTile::updateRec(Camera& camera, unsigned level)
             float newZ = _worldSpaceCenterPos.z - sideLength * 0.25;
 
             glm::vec3 newPos(newX, 0, newZ);
-
-            std::cout << "CURRENT WS CENTER " << _worldSpaceCenterPos.x << ", " << _worldSpaceCenterPos.z << std::endl;
-            std::cout << "LEVEL " << level << std::endl;
-            std::cout << "TILE SIDE LENGTH" << _terrainManager->_tileSideLength << std::endl;
-            std::cout << "CALCULATED SIDE LENGTH " << sideLength << std::endl;
 
             _topLeftChild = new TerrainTile(newPos, _terrainManager, level + 1, newTileKey);
         }
@@ -136,10 +183,19 @@ void TerrainTile::updateRec(Camera& camera, unsigned level)
 void TerrainTile::renderRec(Camera& camera, unsigned level)
 {
     /* For each visible tile, make draw call */
+    _terrainManager->_terrainShader.use();
 
     if (_toRender) {
+        // if (level >= 3) {
+        /* TODO: Move these binds to gridmesh class */
+        //  glBindVertexArray(_terrainManager->_gridMesh1->_vao);
+        //  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _terrainManager->_gridMesh1->_ebo);
+        //  _terrainManager->_terrainShader.setFloat("tileWidth", _terrainManager->_tileSideLength * 2);
+        //} else {
         glBindVertexArray(_terrainManager->_gridMesh->_vao);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _terrainManager->_gridMesh->_ebo);
+        //_terrainManager->_terrainShader.setFloat("tileWidth", _terrainManager->_tileSideLength);
+        //}
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, _overlayTextureId);
@@ -149,22 +205,18 @@ void TerrainTile::renderRec(Camera& camera, unsigned level)
 
         Util::checkGlError("TILE TEXTURE BIND FAILED");
 
-        _terrainManager->_terrainShader.use();
-
         if (level % 3 == 0) {
             _terrainManager->_terrainShader.setVec3("terrainColor", glm::vec3(1, 0, 0));
-            _terrainManager->_skirtShader.setVec3("terrainColor", glm::vec3(1, 0, 0));
         } else if (level % 3 == 1) {
             _terrainManager->_terrainShader.setVec3("terrainColor", glm::vec3(0, 1, 0));
-            _terrainManager->_skirtShader.setVec3("terrainColor", glm::vec3(0, 1, 0));
 
         } else {
             _terrainManager->_terrainShader.setVec3("terrainColor", glm::vec3(0, 0, 1));
-            _terrainManager->_skirtShader.setVec3("terrainColor", glm::vec3(0, 0, 1));
         }
 
         _terrainManager->_terrainShader.setVec3("worldSpaceCenterPos", _worldSpaceCenterPos);
         _terrainManager->_terrainShader.setFloat("zoom", _zoom);
+        _terrainManager->_terrainShader.setVec2("tileKey", glm::vec2((float)_tileKey.first, (float)_tileKey.second));
 
         _terrainManager->_gridMesh->render();
 
@@ -183,6 +235,7 @@ void TerrainTile::renderRec(Camera& camera, unsigned level)
 
         _terrainManager->_skirtShader.setVec3("worldSpaceCenterPos", _worldSpaceCenterPos);
         _terrainManager->_skirtShader.setFloat("zoom", _zoom);
+        _terrainManager->_skirtShader.setVec2("tileKey", glm::vec2((float)_tileKey.first, (float)_tileKey.second));
 
         _terrainManager->_skirtMesh->render();
 
@@ -277,6 +330,8 @@ void TerrainTile::loadOverlay(const std::string& fileName)
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -300,7 +355,7 @@ void TerrainTile::loadHeightmapWebP(const std::string& fileName)
 void TerrainTile::checkImageSquare(int imgWidth, int imgHeight)
 {
     if (imgWidth != imgHeight) {
-        std::cout << "Image not square" << std::endl;
+        std::cerr << "Image not square" << std::endl;
         std::exit(1);
     }
 }

@@ -1,5 +1,7 @@
 #include "gridmesh.h"
 
+#include <iostream>
+
 GridMesh::GridMesh(unsigned sideLength)
 {
     _sideLength = sideLength;
@@ -13,7 +15,6 @@ void GridMesh::load()
 
 void GridMesh::render()
 {
-
     glEnable(GL_PRIMITIVE_RESTART);
     glPrimitiveRestartIndex(RESTART_INDEX);
     glBindVertexArray(_vao);
@@ -28,11 +29,13 @@ void GridMesh::loadVertices()
     for (int i = 0; i < _sideLength; i++) {
         for (int j = 0; j < _sideLength; j++) {
             /* Load vertices around center point */
-            float x = (-(float)_sideLength / 2.0f + (float)_sideLength * j / (float)_sideLength) + 0.5; /* TODO +0.5 probably wrong*/
+            float x = (-(float)_sideLength / 2.0f + (float)_sideLength * j / (float)_sideLength) + 0.5;
             float z = (-(float)_sideLength / 2.0f + (float)_sideLength * i / (float)_sideLength) + 0.5;
 
             _vertices.push_back(x); /* Position x */
             _vertices.push_back(z); /* Position z */
+
+            std::cout << "Pushed " << x << ", " << z << std::endl;
         }
     }
 

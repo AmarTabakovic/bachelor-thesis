@@ -16,6 +16,8 @@ class TerrainManager;
 class TerrainTile
 {
 public:
+    static unsigned requestCount;
+
     TerrainTile(glm::vec3 worldSpaceCenterPos, TerrainManager* manager, unsigned zoom, std::pair<unsigned, unsigned> tileKey);
     void loadOverlay(const std::string& fileName); /* TODO temporary with file */
     void loadHeightmap(const std::string& fileName);
@@ -40,9 +42,12 @@ public:
 
     void loadHeightmapWebP(const std::string& fileName);
 
-    glm::vec3 _worldSpaceCenterPos;
+    glm::vec3 _worldSpaceCenterPos; /* TODO: Rename this? Or specify more precisely what this is */
+    glm::vec3 _wgs86CenterPos;
+    glm::vec2 _globalTileSpaceCenterPos; /**/
 
     glm::vec3 _aabbP1, _aabbP2;
+    glm::vec3 _wgs86AabbP1, _wgs86AabbP2;
 
     std::pair<unsigned, unsigned> _tileKey; /* XYZ key */
     unsigned _zoom; /* I.e. LOD level */
