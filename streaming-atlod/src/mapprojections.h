@@ -14,7 +14,7 @@
  */
 namespace MapProjections {
 
-const float PI = 3.141592;
+const float PI = 3.141592f;
 
 glm::vec3 geodeticSurfaceNormal(glm::vec3 geodetic)
 {
@@ -36,7 +36,7 @@ glm::vec3 geodeticToCartesian(glm::vec3 globeRadiiSquared, glm::vec3 geodetic)
 glm::vec2 globalTileXZToLonLat(glm::vec2 globalTileXZ)
 {
     float lon = glm::radians((globalTileXZ.x * 360.0f - 180.0f) * -1);
-    float lat = glm::radians(atan(exp(PI * (1.0f - 2.0f * globalTileXZ.y))) * 2.0f - PI / 2.0f) * 180.0f / PI;
+    float lat = glm::radians((atan(exp(PI * (1.0f - 2.0f * globalTileXZ.y))) * 2.0f - PI / 2.0f) * 180.0f / PI);
     return glm::vec2(lon, lat);
 }
 

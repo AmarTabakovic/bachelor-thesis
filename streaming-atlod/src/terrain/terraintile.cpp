@@ -60,21 +60,31 @@ void TerrainTile::updateRec(Camera& camera, unsigned level)
     _visible = true;
 
     /* TODO: Cleanup code and precompute some of this stuff on tile creation */
-    glm::vec2 globalTileKeyCenter((_tileKey.first + 0.5f) / (1 << _zoom), (_tileKey.second + 0.5) / (1 << _zoom));
-    float globalTileKeyP1X = globalTileKeyCenter.x + ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
-    float globalTileKeyP1Y = globalTileKeyCenter.y + ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
-    float globalTileKeyP2X = globalTileKeyCenter.x - ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
-    float globalTileKeyP2Y = globalTileKeyCenter.y - ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
-    float globalTileKeyP3X = globalTileKeyCenter.x + ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
-    float globalTileKeyP3Y = globalTileKeyCenter.y - ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
-    float globalTileKeyP4X = globalTileKeyCenter.x - ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
-    float globalTileKeyP4Y = globalTileKeyCenter.y + ((_terrainManager->_tileSideLength - 1) / (1 << _zoom)) / 2;
+    float pow2Level = (float)(1 << _zoom);
+
+    std::cout << (_zoom == level) << std::endl;
+
+    glm::vec2 globalTileKeyCenter((_tileKey.first + 0.5f) / pow2Level, (_tileKey.second + 0.5f) / pow2Level);
+
+    float globalTileKeyP1X = globalTileKeyCenter.x + (0.5f / pow2Level);
+    float globalTileKeyP1Y = globalTileKeyCenter.y + (0.5f / pow2Level);
+
+    float globalTileKeyP2X = globalTileKeyCenter.x - (0.5f / pow2Level);
+    float globalTileKeyP2Y = globalTileKeyCenter.y - (0.5f / pow2Level);
+
+    float globalTileKeyP3X = globalTileKeyCenter.x + (0.5f / pow2Level);
+    float globalTileKeyP3Y = globalTileKeyCenter.y - (0.5f / pow2Level);
+
+    float globalTileKeyP4X = globalTileKeyCenter.x - (0.5f / pow2Level);
+    float globalTileKeyP4Y = globalTileKeyCenter.y + (0.5f / pow2Level);
+
     glm::vec2 p1Temp = MapProjections::globalTileXZToLonLat(glm::vec2(globalTileKeyP1X, globalTileKeyP1Y));
     glm::vec2 p2Temp = MapProjections::globalTileXZToLonLat(glm::vec2(globalTileKeyP2X, globalTileKeyP2Y));
     glm::vec2 p3Temp = MapProjections::globalTileXZToLonLat(glm::vec2(globalTileKeyP3X, globalTileKeyP3Y));
     glm::vec2 p4Temp = MapProjections::globalTileXZToLonLat(glm::vec2(globalTileKeyP4X, globalTileKeyP4Y));
 
     /* TODO: The radius is hardcoded here just for testing, should be changed */
+    /* TODO: Read the y from heightmap, might have to use max and min heights? */
     glm::vec3 spherePosP1 = MapProjections::geodeticToCartesian(glm::vec3(1000, 1000, 1000), glm::vec3(p1Temp.x, 0, p1Temp.y));
     glm::vec3 spherePosP2 = MapProjections::geodeticToCartesian(glm::vec3(1000, 1000, 1000), glm::vec3(p2Temp.x, 0, p2Temp.y));
     glm::vec3 spherePosP3 = MapProjections::geodeticToCartesian(glm::vec3(1000, 1000, 1000), glm::vec3(p3Temp.x, 0, p3Temp.y));
@@ -84,23 +94,37 @@ void TerrainTile::updateRec(Camera& camera, unsigned level)
         spherePosP2.x,
         spherePosP3.x,
         spherePosP4.x });
+
     float maxY = std::max({ spherePosP1.y,
         spherePosP2.y,
         spherePosP3.y,
         spherePosP4.y });
+
+    float maxZ = std::max({ spherePosP1.z,
+        spherePosP2.z,
+        spherePosP3.z,
+        spherePosP4.z });
+
     float minX = std::min({ spherePosP1.x,
         spherePosP2.x,
         spherePosP3.x,
         spherePosP4.x });
+
     float minY = std::min({ spherePosP1.y,
         spherePosP2.y,
         spherePosP3.y,
         spherePosP4.y });
 
-    glm::vec3 p1(maxX, 0, maxY);
-    glm::vec3 p2(minX, 0, minY);
+    float minZ = std::min({ spherePosP1.z,
+        spherePosP2.z,
+        spherePosP3.z,
+        spherePosP4.z });
 
-    _visible = camera.insideViewFrustum(spherePosP1, spherePosP2);
+    glm::vec3 p1(maxX, maxY, maxZ);
+    glm::vec3 p2(minX, minY, minZ);
+
+    //_visible = camera.insideViewFrustum(p1, p2);
+    _visible = camera.insideViewFrustum(p2, p1);
 
     if (!_visible)
         return;

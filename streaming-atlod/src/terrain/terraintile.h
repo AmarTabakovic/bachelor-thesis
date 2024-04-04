@@ -16,6 +16,18 @@ class TerrainManager;
 class TerrainTile
 {
 public:
+    enum TileState {
+        GPU_READY, /* Data is on the GPU, ready to render */
+        LOADING_FROM_MEMORY, /* Data is being loaded from CPU to GPU */
+        CPU_READY, /* Data is on the CPU, ready to be loaded on GPU */
+        LOADING_FROM_DISK, /* Data is being loaded from disk to main memory */
+        CACHED, /* Data is on disk, can be loaded in */
+        LOADING_FROM_API, /* Data is being downloaded */
+        DOWNLOADABLE, /* Data is not on disk, but might be downloadable via API */
+        UNDOWNLOADABLE /* Data was attempted to be downloaded, but API returned
+                          e.g. a 204 return code */
+    };
+
     static unsigned requestCount;
 
     TerrainTile(glm::vec3 worldSpaceCenterPos, TerrainManager* manager, unsigned zoom, std::pair<unsigned, unsigned> tileKey);
@@ -35,6 +47,8 @@ public:
     TerrainTile* _topRightChild = nullptr;
     TerrainTile* _bottomLeftChild = nullptr;
     TerrainTile* _bottomRightChild = nullptr;
+
+    TileState _state = DOWNLOADABLE;
 
     // private:
 
