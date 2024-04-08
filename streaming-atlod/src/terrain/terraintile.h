@@ -56,6 +56,8 @@ public:
 
     void loadHeightmapWebP(const std::string& fileName);
 
+    void generateAabb();
+
     glm::vec3 _worldSpaceCenterPos; /* TODO: Rename this? Or specify more precisely what this is */
     glm::vec3 _wgs86CenterPos;
     glm::vec2 _globalTileSpaceCenterPos; /**/

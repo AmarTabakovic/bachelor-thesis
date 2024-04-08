@@ -20,6 +20,8 @@ TerrainTile::TerrainTile(glm::vec3 worldSpaceCenterPos, TerrainManager* manager,
     _terrainManager = manager;
     _zoom = zoom;
     _tileKey = tileKey;
+
+    generateAabb();
 }
 
 void TerrainTile::update(Camera& camera)
@@ -35,6 +37,7 @@ void TerrainTile::render(Camera& camera)
 
 bool TerrainTile::shouldSplit(Camera& camera)
 {
+    /* TODO: exact split metric should be thought out well */
     glm::vec2 globalTileKeyCenter((_tileKey.first + 0.5f) / (1 << _zoom), (_tileKey.second + 0.5) / (1 << _zoom));
     glm::vec2 p1Temp = MapProjections::globalTileXZToLonLat(globalTileKeyCenter);
     glm::vec3 spherePos = MapProjections::geodeticToCartesian(glm::vec3(1000, 1000, 1000), glm::vec3(p1Temp.x, 0, p1Temp.y));
@@ -50,19 +53,9 @@ bool TerrainTile::shouldSplit(Camera& camera)
     return false;
 }
 
-void TerrainTile::updateRec(Camera& camera, unsigned level)
+void TerrainTile::generateAabb()
 {
-    /* - Check visibility
-     * - Check distance
-     * - Check heightmap/overlay availability
-     */
-
-    _visible = true;
-
-    /* TODO: Cleanup code and precompute some of this stuff on tile creation */
     float pow2Level = (float)(1 << _zoom);
-
-    std::cout << (_zoom == level) << std::endl;
 
     glm::vec2 globalTileKeyCenter((_tileKey.first + 0.5f) / pow2Level, (_tileKey.second + 0.5f) / pow2Level);
 
@@ -120,11 +113,18 @@ void TerrainTile::updateRec(Camera& camera, unsigned level)
         spherePosP3.z,
         spherePosP4.z });
 
-    glm::vec3 p1(maxX, maxY, maxZ);
-    glm::vec3 p2(minX, minY, minZ);
+    _aabbP2 = glm::vec3(maxX, maxY, maxZ);
+    _aabbP1 = glm::vec3(minX, minY, minZ);
+}
 
-    //_visible = camera.insideViewFrustum(p1, p2);
-    _visible = camera.insideViewFrustum(p2, p1);
+void TerrainTile::updateRec(Camera& camera, unsigned level)
+{
+    /* - Check visibility
+     * - Check distance
+     * - Check heightmap/overlay availability
+     */
+
+    _visible = camera.insideViewFrustum(_aabbP1, _aabbP2);
 
     if (!_visible)
         return;
@@ -132,6 +132,7 @@ void TerrainTile::updateRec(Camera& camera, unsigned level)
     bool split = shouldSplit(camera);
 
     if (!split || level == _terrainManager->_maxZoom) {
+        /* TODO: Multithreaded and networked loading */
         if (!_heightmapLoaded) {
             std::cout << "--- Tile " << _tileKey.first << ", " << _tileKey.second << std::endl;
             std::cout << "Loading heightmap" << std::endl;
