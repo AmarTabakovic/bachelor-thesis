@@ -1,4 +1,4 @@
-#version 330 core
+#version 400 core
 layout (location = 0) in vec2 aPos;
 
 out vec3 FragPosition;
@@ -14,15 +14,17 @@ uniform mat4 view;
 uniform mat4 model;
 uniform vec2 offset;
 uniform sampler2D heightmapTexture;
-uniform vec3 worldSpaceCenterPos;
 uniform float textureWidth;
 uniform float textureHeight;
 uniform float tileWidth;
 uniform float zoom;
 uniform vec2 tileKey;
+uniform vec3 globeRadiusSquared;
 
 vec3 geodeticSurfaceNormal(vec3 geodetic);
 vec3 geodeticToCartesian(vec3 globeRadiiSquared, vec3 geodetic);
+
+precision highp float;
 
 void main()
 {
@@ -31,21 +33,31 @@ void main()
 
     tw -=1;
 
+    /* Normalized positions [0,1] */
     vec2 aPos1 = vec2((aPos.x + 0.5f * tw) / tw,
                         (aPos.y + 0.5f * tw) / tw);
 
     float globalX = (tileKey.x + aPos1.x) / float(1 << int(zoom));
     float globalZ = (tileKey.y + aPos1.y) / float(1 << int(zoom));
 
-    float pi = 3.141592;
+    float pi = 3.1415926538;
 
     vec3 height = texture(heightmapTexture, aPos1).rgb;
 
     /* Maptiler Terrain RGB decoding formula:
      *
      *       elevation = -10000 + ((R * 256 * 256 + G * 256 + B) * 0.1)
+     *
      */
-    float y = /*-10000 +*/ ((height.r * 256.0f * 256.0f + height.g * 256.0f + height.b) * 0.1f) / 30.0f / 4.0f;
+    float y = (height.r * 256 * 256 + height.g * 256 + height.b);
+    float scaleFactor = 1.0f / 600.0f;
+    y = y * scaleFactor;
+
+    height = height * 255;
+
+    y = -10000 + (((height.r * 256.0f * 256.0f * 0.1) + (height.g * 256.0f * 0.1) + (height.b * 0.1)));
+
+    y = (y / 20169.51);
 
     float lon = (globalX * 360.0f - 180.0f) * -1;
     float lat = atan(exp(pi * (1.0f - 2.0f * globalZ))) * 2.0f - pi / 2.0f;
@@ -54,14 +66,14 @@ void main()
     float latRad = radians(lat);
     float lonRad = radians(lon);
 
-    vec3 spherePos = geodeticToCartesian(vec3(1000,1000,1000), vec3(lonRad, y, latRad));
+    vec3 spherePos = geodeticToCartesian(globeRadiusSquared, vec3(lonRad, y, latRad));
 
     mercXZ = aPos1;
-    inNormal = geodeticSurfaceNormal(vec3(lonRad, y, latRad));
+    inNormal = geodeticSurfaceNormal(vec3(lonRad, 0, latRad));
 
     gl_Position = projection * view * model * vec4(spherePos, 1.0);
 
-    FragPos2 = vec3(0,0,0);
+    FragPos2 = spherePos;
     FragPosition = FragPos2;
 
 }
@@ -79,5 +91,4 @@ vec3 geodeticToCartesian(vec3 globeRadiiSquared, vec3 geodetic) {
 
     vec3 rSurface = k / gamma;
     return rSurface + (geodetic.y * n);
-
 }

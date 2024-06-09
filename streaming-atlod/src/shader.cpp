@@ -29,8 +29,6 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath)
         std::cout << "Shader linking failed: "
                   << info << std::endl;
         std::exit(1);
-    } else {
-        std::cout << "Successfully linked shaders" << std::endl;
     }
 
     /* Shaders are linked, therefore no longer necessary, delete them */
@@ -85,7 +83,6 @@ int Shader::loadShaderProgram(const char* path, GLenum type)
         exit(1);
     };
 
-    std::cout << "Compiled shader program with ID " << shaderId << std::endl;
     return shaderId;
 }
 

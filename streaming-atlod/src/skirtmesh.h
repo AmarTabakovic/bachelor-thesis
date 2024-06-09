@@ -10,7 +10,6 @@
 class SkirtMesh
 {
 public:
-public:
     static constexpr GLuint RESTART_INDEX = std::numeric_limits<GLuint>::max();
 
     SkirtMesh(unsigned sideLength);

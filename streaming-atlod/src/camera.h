@@ -7,8 +7,8 @@
 
 const float YAW = -90.0f;
 const float PITCH = 0.0f;
-const float SPEED = 37.5 / 16;
-const float SPEED_UP_MULT = 8 * 4;
+const float SPEED = 320; // 0.5;
+const float SPEED_UP_MULT = 1;
 const float ZOOM = 45.0f;
 const float LOOK_VELOCITY = 4;
 
@@ -79,6 +79,8 @@ public:
     /* Getters */
     glm::mat4 getViewMatrix();
     glm::vec3 front();
+    glm::vec3 right();
+    glm::vec3 up();
     glm::vec3 position();
     Frustum viewFrustum();
     float zoom();
@@ -99,6 +101,8 @@ public:
     void lerpLook(float lerpFactor);
 
     void processKeyboard(CameraAction direction, float deltaTime);
+    void processKeyboardFree(CameraAction direction, float deltaTime);
+    void processMouseMovement(float xOffset, float yOffset);
     void updateFrustum();
 
     bool isFlying = false;
@@ -111,8 +115,15 @@ public:
 
     void updateCameraVectors();
 
+    float _lon = 0.01;
+    float _lat = 0.01;
+    float _height = 200.0;
+
+    float verticalCollisionOffset = 0.0;
+
 private:
-    bool checkPlane(Plane& plane, glm::vec3 p1, glm::vec3 p2);
+    bool
+    checkPlane(Plane& plane, glm::vec3 p1, glm::vec3 p2);
 
     Frustum _viewFrustum;
     glm::vec3 _position;

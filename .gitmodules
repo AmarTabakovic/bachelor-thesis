@@ -13,3 +13,6 @@
 [submodule "streaming-atlod/lib/libwebp"]
 	path = streaming-atlod/lib/libwebp
 	url = https://github.com/webmproject/libwebp
+[submodule "streaming-atlod/lib/curl"]
+	path = streaming-atlod/lib/curl
+	url = https://github.com/curl/curl.git

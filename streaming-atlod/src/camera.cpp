@@ -1,4 +1,13 @@
 #include "camera.h"
+#include "mapprojections.h"
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include "util.h"
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/rotate_vector.hpp>
+#include <glm/matrix.hpp>
 #include <iostream>
 
 Camera::Camera(glm::vec3 position, glm::vec3 up, float zNear, float zFar, float aspectRatio, float yaw, float pitch)
@@ -18,20 +27,19 @@ Camera::Camera(glm::vec3 position, glm::vec3 up, float zNear, float zFar, float 
     updateFrustum();
 }
 
-void Camera::lerpFly(float lerpFactor)
-{
-    _position = origin + direction * lerpFactor;
-}
-
-void Camera::lerpLook(float lerpFactor)
-{
-    _yaw = initialYaw + 360.0f * lerpFactor;
-    updateCameraVectors();
-}
-
 glm::vec3 Camera::front()
 {
     return _front;
+}
+
+glm::vec3 Camera::right()
+{
+    return _right;
+}
+
+glm::vec3 Camera::up()
+{
+    return _up;
 }
 
 void Camera::aspectRatio(float aspectRatio)
@@ -41,15 +49,21 @@ void Camera::aspectRatio(float aspectRatio)
 
 bool Camera::insideViewFrustum(glm::vec3 p1, glm::vec3 p2)
 {
-    // Frustum frustum = camera.viewFrustum();
     Frustum frustum = _viewFrustum;
 
-    return (checkPlane(frustum.leftFace, p1, p2)
-        && checkPlane(frustum.rightFace, p1, p2)
-        && checkPlane(frustum.topFace, p1, p2)
-        && checkPlane(frustum.bottomFace, p1, p2)
-        && checkPlane(frustum.nearFace, p1, p2)
-        && checkPlane(frustum.farFace, p1, p2));
+    unsigned checked = 0;
+
+    checked += checkPlane(frustum.leftFace, p1, p2);
+    checked += checkPlane(frustum.rightFace, p1, p2);
+    checked += checkPlane(frustum.topFace, p1, p2);
+    checked += checkPlane(frustum.bottomFace, p1, p2);
+    checked += checkPlane(frustum.nearFace, p1, p2);
+    checked += checkPlane(frustum.farFace, p1, p2);
+
+    /* This is a temporary hack because some AABBs are wrongly detected
+     * as outside of the frustum, which should be investigated in the
+     * nearer future */
+    return checked >= 5;
 }
 
 bool Camera::checkPlane(Plane& plane, glm::vec3 p1, glm::vec3 p2)
@@ -110,40 +124,83 @@ float Camera::yaw()
 
 void Camera::processKeyboard(CameraAction direction, float deltaTime)
 {
-    float velocity = _movementSpeed * deltaTime;
+    float dist = glm::length(_position);
+    float damp = (glm::clamp(dist, 317.0f, 450.0f) - 316.95f) / 133.0f;
+
+    float velocity = _movementSpeed * deltaTime * damp;
+
+    glm::vec3 oldPosition = _position;
+
+    glm::vec3 r = glm::vec3(100000, 100000, 100000);
+
+    /* Spherical traversal */
+    glm::vec3 earthNormal = glm::normalize(_position);
+    glm::vec3 projectedFront = _front - glm::dot(_front, earthNormal) / glm::dot(earthNormal, earthNormal) * earthNormal;
+    projectedFront = glm::normalize(projectedFront);
+
+    glm::vec3 collisionCorrection = earthNormal * verticalCollisionOffset;
 
     if (direction == CameraAction::SPEED_UP)
         _movementSpeed = SPEED * SPEED_UP_MULT;
     else
         _movementSpeed = SPEED;
 
+    _position += collisionCorrection;
+
     if (direction == CameraAction::MOVE_FORWARD) {
-        glm::vec3 temp = glm::normalize(glm::vec3(_front.x, 0, _front.z));
-        _position += temp * velocity;
+        _position = _position + projectedFront * velocity;
     }
     if (direction == CameraAction::MOVE_BACKWARD) {
-        glm::vec3 temp = glm::normalize(glm::vec3(_front.x, 0, _front.z));
-        _position -= temp * velocity;
+        _position = _position - projectedFront * velocity;
     }
-    if (direction == CameraAction::MOVE_LEFT)
+    if (direction == CameraAction::MOVE_LEFT) {
         _position -= _right * velocity;
-    if (direction == CameraAction::MOVE_RIGHT)
+    }
+    if (direction == CameraAction::MOVE_RIGHT) {
         _position += _right * velocity;
+    }
     if (direction == CameraAction::MOVE_UP)
-        _position += glm::vec3(0, 1, 0) * velocity;
+        _position += earthNormal * velocity;
     if (direction == CameraAction::MOVE_DOWN)
-        _position -= glm::vec3(0, 1, 0) * velocity;
+        _position -= earthNormal * velocity;
     if (direction == CameraAction::LOOK_UP)
-        _pitch = std::fmin(89, _pitch + 1);
+        _pitch += 1 * 0.5;
     if (direction == CameraAction::LOOK_DOWN)
-        _pitch = std::fmax(-89, _pitch - 1);
+        _pitch -= 1 * 0.5;
     if (direction == CameraAction::LOOK_LEFT)
-        _yaw -= 1;
+        _yaw += 1 * 0.5;
     if (direction == CameraAction::LOOK_RIGHT)
-        _yaw += 1;
+        _yaw -= 1 * 0.5;
+
+    /* Limit the positions */
+    if (glm::length(_position) >= 1000)
+        _position = oldPosition;
+
+    /* Cannot go over the poles */
+    if (glm::abs(_position.x) <= 30 && glm::abs(_position.z) <= 30)
+        _position = oldPosition;
+
+    _pitch = glm::clamp(_pitch, -89.0f, 0.0f);
+
+    if (_yaw >= 360.0f || _yaw <= -360.0f)
+        _yaw = 0;
 
     updateCameraVectors();
-    // std::cout << _position.x << ", " << _position.y << ", " << _position.z << std::endl;
+    updateFrustum();
+}
+
+void Camera::processMouseMovement(float xOffset, float yOffset)
+{
+    _yaw += xOffset * 0.5;
+    _pitch += yOffset * 0.5;
+
+    _pitch = glm::clamp(_pitch, -89.0f, 0.0f);
+
+    if (_yaw >= 360.0f || _yaw <= -360.0f)
+        _yaw = 0;
+
+    updateCameraVectors();
+    updateFrustum();
 }
 
 Frustum Camera::viewFrustum()
@@ -175,12 +232,28 @@ void Camera::updateFrustum()
 
 void Camera::updateCameraVectors()
 {
-    glm::vec3 front1;
-    front1.x = cos(glm::radians(_yaw)) * cos(glm::radians(_pitch));
-    front1.y = sin(glm::radians(_pitch));
-    front1.z = sin(glm::radians(_yaw)) * cos(glm::radians(_pitch));
-    _front = glm::normalize(front1);
 
-    _right = glm::normalize(glm::cross(_front, _worldUp));
+    /* Earth-based camera vectors */
+    glm::vec3 earthNormal = glm::normalize(_position);
+
+    glm::vec3 earthRight = glm::normalize(glm::cross(earthNormal, _worldUp));
+    glm::vec3 earthFront = -1.0f * glm::normalize(glm::cross(earthNormal, earthRight));
+    glm::vec3 front1;
+
+    front1 = glm::vec3(0, 0, -1.0);
+
+    glm::mat4 earthSystem = glm::mat4(glm::vec4(earthRight, 0),
+        glm::vec4(earthNormal, 0),
+        glm::vec4(earthFront, 0),
+        glm::vec4(0, 0, 0, 1));
+
+    glm::quat pitchQuat = glm::angleAxis(glm::radians(_pitch), earthRight);
+    glm::quat yawQuat = glm::angleAxis(glm::radians(_yaw), earthNormal);
+    glm::quat earthQuat = glm::quat_cast(earthSystem);
+
+    front1 = glm::vec3(yawQuat * pitchQuat * earthQuat * front1);
+
+    _front = glm::normalize(front1);
+    _right = glm::normalize(glm::cross(_front, earthNormal));
     _up = glm::normalize(glm::cross(_right, _front));
 }

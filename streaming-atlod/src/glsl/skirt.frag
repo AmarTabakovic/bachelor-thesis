@@ -1,4 +1,4 @@
-#version 330 core
+#version 400 core
 
 in vec3 FragPosition;
 in vec3 FragPos2;
@@ -26,7 +26,6 @@ uniform vec3 inColor;
 uniform sampler2D overlayTexture;
 uniform sampler2D heightmapTexture;
 
-uniform vec3 worldSpaceCenterPos;
 uniform float textureWidth;
 uniform float textureHeight;
 uniform float tileWidth;
@@ -51,7 +50,7 @@ void main()
        float tw = tileWidth;
        tw -= 1;
 
-       float pi = 3.141592;
+       float pi = 3.1415926538;
        int pow2Zoom = 1 << int(zoom);
 
        vec2 texPos = mercXZ;
@@ -60,12 +59,12 @@ void main()
        //color = vec3(0.4,0.4,0.4);
 
        vec3 ambient = calculateAmbient(lightColor, 0.1f);
-       vec3 diffuse = calculateDiffuse(lightColor);
-       color = (ambient + diffuse) * color;
+       //vec3 diffuse = calculateDiffuse(lightColor);
+       //color = (ambient + diffuse) * color;
        //color = ambient * color;
 
        if (doFog > 0.5) {
-           vec3 fogColour = skyColor;
+           vec3 fogColour = vec3(97, 154, 232) / 255.0f;//skyColor;
            float fogFactor = calculateFog(fogDensity);
            color = mix(fogColour, color, fogFactor);
        }
@@ -114,11 +113,16 @@ vec3 calculateDiffuse(vec3 lightColor) {
 /* The distance fog concept is based on the following resource:
  * https://opengl-notes.readthedocs.io/en/latest/topics/texturing/aliasing.html */
 float calculateFog(float density) {
+    float start = 0.8;
+    float end = 3.5;
     float dist = length(cameraPos - FragPos2);
-    float fogFactor = exp(-density * dist);
-    return clamp(fogFactor, 0.0f, 1.0f);
+    if (dist < start) return 1.0f;
+    //float dist = length(FragPos2 - cameraPos);
+    //float fogFactor = pow(exp(-density * dist), 8);
+    float scale = (dist - start) / (end - start);
+    float fogFactor = pow(scale, 1);
+    return 1.0f - clamp(fogFactor, 0.0f, 0.5f);
 }
-
 float calculateHeight(vec3 heightSample) {
-    return /*-10000*/ + ((heightSample.r * 256 * 256 + heightSample.g * 256 + heightSample.b) * 0.1) / 30 / 4.0f ;
+    return /*-10000*/ + ((heightSample.r * 256 * 256 + heightSample.g * 256 + heightSample.b) * 0.1) / 20.0f; /// 8.0f ;
 }
