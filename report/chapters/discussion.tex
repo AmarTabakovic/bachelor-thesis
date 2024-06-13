@@ -1,0 +1,38 @@
+\chapter{Discussion}
+This chapter discusses the results obtained in the previous chapter.
+
+\section{Rendering Performance}
+In terms of rendering performance, StreamingATLOD performs decently well
+given the hardware it was tested on.
+With the used configuration settings, the triangle count is kept well below 200000 and the number of draw calls below 
+300 even at the highest zoom levels, without 
+sacrificing the visual appearance too much.
+The framerates are approriate as well in most cases, with only a few occasional hiccups 
+while close to the ground.
+
+\section{Streaming Performance}
+The average time between arriving at a place and finishing loading the necessary tiles were on average 
+18.2 seconds. Given the fact that the disk cache was empty in all experiments, some latency was to be expected.
+As such, the main bottleneck of the streaming performance lies in the requesting from the web APIs.
+Disk caching prevents this temporarily, especially
+for places which are visited frequently by the user.
+
+\section{Memory Usage}
+In the experiments, the total memory usage ranged between 800 MB to 1.2 GB, 
+which is a normal range for a large-scale Earth renderer.
+Upon reaching the memory cache capacity size, the 
+memory allocated for terrain data remains practically constant,
+since we always evict unused terrain nodes upon loading new ones in.
+Once the disk cache is full, then the memory consumption in total stays constant,
+since we do not have to store new tile keys in the in-memory disk cache anymore.
+
+\section{Disk Cache Measurements}
+The file system size of the disk cache is kept mostly in a normal range,
+which is between 92 MB for a disk cache capacity of 400 nodes 
+and 1.4 GB for a disk cache capacity of 8000 nodes.
+The heightmap subfolder of the file system disk cache 
+is in most cases around three to four times 
+larger than the overlay subfolder. The reason 
+for this is that the heightmap tiles are stored 
+in WebP format instead of JPG.
+

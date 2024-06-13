@@ -1,0 +1,72 @@
+\chapter{Conclusion}
+
+\section{Potential Improvements}
+This section lists some potential technical improvements
+to the rendering and the streaming aspects of StreamingATLOD.
+
+\paragraph{Higher Precision Support}
+Currently, StreamingATLOD operates on 32-bit floating point numbers 
+for most purposes, including vertex transformations. 
+So far, this has not been a problem, since 
+the terrain data was limited to zoom level 14, which corresponds 
+to a maximum precision of 9.5 meters per pixel. 
+However, if StreamingATLOD were to be used with centimeter-accurate terrain data,
+this would likely result in jittering artifacts 
+and depth buffer fighting during rendering, requiring 
+modifications described in section in section ``Potential Problems during Rendering'' of chapter ``Theoretical Background''.
+
+\paragraph{Request Priorization}
+When new tiles must be loaded into memory, StreamingATLOD pushes 
+these requests into a request queue. Currently,
+a worker thread processes these requests in the order 
+which they came in, meaning from oldest to newest,
+which is not ideal, since old requests which might not 
+be needed anymore still have to get loaded.
+An improvement would be to prioritize requests.
+
+\paragraph{Transitions Between LOD Changes}
+Right now, when a terrain node with zoom level 
+gets rendered and at some point 
+its four children must get rendered instead,
+the sudden change between the lower resolution 
+and the higher resolution nodes causes 
+a visible popping artifact of higher detailed terrain 
+to occur. One way to reduce popping 
+is to quickly blend the terrain meshes
+together, thus reducing the popping. 
+This comes at the cost of having to render 
+both the high resolution and low resolution 
+meshes at the same time for a short while.
+
+\section{Possibilities for Extension}
+This section describes some potential 
+features and ideas on how StreamingATLOD could be further enhanced.
+
+\paragraph{Extension into a Software Development Kit}
+StreamingATLOD could be extended into a software development kit (SDK)
+for developing desktop-based Earth renderers with C++ and OpenGL.
+For this, various classes would have to be restructured 
+for more flexibility and configurability.
+
+\paragraph{Multiple Data Layers}
+Currently, StreamingATLOD operates on one height data layer 
+and one imagery layer. StreamingATLOD could be extended 
+to be able to work with multiple data layers. This would be 
+especially useful in case data is not available in one layer 
+but might be available in another.
+
+\paragraph{Realistic Atmospheric Rendering}
+StreamingATLOD currently only renders the black color if the camera 
+is in space and a static skybox for when the camera is close 
+to the ground and interpolates between both if the camera 
+is in between. A realistic atmospheric model, such as 
+\textit{Precomputed Atmospheric Scattering} by Bruneton and Neyret \cite{precomputedatmosphericscattering}
+would increase the realism and the visual aesthetics.
+
+\section{Personal Conclusion}
+This conclusion is my personal reflexion and
+outlook on this bachelor thesis. Generally, I am very 
+satisfied with the system I've developed. This was probably the most 
+challenging project I've worked on. 
+I am very happy with the results
+and was able to finish almost everything I set out to do.

@@ -1,0 +1,128 @@
+\chapter{Introduction}
+Terrains are an important part of many practical applications of 3D computer graphics.
+They can be found in video games, simulation software and geographical information systems (GIS).
+Rendering terrains, however, is far from an easy task
+and there are numerous issues which need to be addressed.
+
+The first main issue is that terrains are expensive to render 
+due to their near-constant visibility 
+and their sheer size. For example, 
+consider a square terrain which consists of 
+$8192 \times 8192$ vertices.
+Rendering the entire terrain without any optimizations would require 
+more than 134 million triangles\footnote{Each vertex represents one height point and each quad consisting of 4 vertices consists of two triangles. The total number of triangles is given by $(8192 - 1) \times (8192 - 1) \times 2 = 134184962$.} 
+to be rendered per frame, which is completely infeasible 
+even with the most performant GPUs of today. 
+The solution for this issue is \textit{level of detail (LOD)}: 
+sections of the terrain which are far away from the camera or with low variation in height 
+are rendered with fewer vertices and triangles.
+Terrain LOD has been the topic of considerable research throughout 
+the last three decades, spawning numerous 
+algorithms and approaches which solve this issue 
+in a variety of creative ways. 
+
+The second main issue concerns the management of terrain data.
+Terrain datasets can become extremely large, especially 
+when representing real places, such as the Earth.
+For example, in 2016 the Google Earth database was estimated to 
+contain more than 3000 terabytes of data in total \cite{googleearthdatabase}.
+Most consumer computers today have 
+between 8 to 32 gigabytes of RAM and 2 to 6 gigabytes of GPU memory,
+making loading the entire dataset into memory impossible.
+The solution for this issue is \textit{streaming}: instead of 
+loading the entire terrain data all at once into memory,
+the idea is to only \textit{stream in}
+the currently needed data from the disk or over the network.
+Over time, unused terrain data must be deallocated
+as well in order to make space for new data.
+
+When terrain streaming is performed over the network, 
+a problem that can arise is that the 
+the terrain data servers get overwhelmed with lots of requests.
+The solution for this problem is \textit{caching}:
+the concept of temporarily keeping recently or frequently used 
+terrain data on the client in order to reduce 
+the number of network requests. Terrain caching is usually 
+performed in multiple layers. Terrain data can 
+be situated (in the order of accessing speed):
+on the GPU, in memory, on the disk or on the terrain server \cite[p.~382]{3denginedesignforvirtualglobes}.
+Both terrain streaming and caching draw inspiration mainly from 
+the areas of operating systems, web browsers and data management.
+
+\section{Goals of this Thesis}
+The main goal of this thesis is the development of a prototype for 
+a streaming-based terrain rendering system 
+with level of detail.
+The system should meet the following requirements.
+
+\paragraph{Terrain Rendering} The system should be capable of rendering 
+                               a terrain at interactive framerates using 
+                               level of detail and other optimizations to ensure appropriate rendering 
+                               performance. Preferably, the terrain should be rendered
+                               as a sphere for better realism.
+\paragraph{Terrain Streaming}  The system should be capable of loading 
+                               and offloading terrain data in and out of memory based on 
+                              the camera's state.
+                               Preferably, the terrain data can be loaded at runtime
+                              from web-based APIs served by data providers.
+\paragraph{Terrain Caching} The system should be capable of caching terrain 
+                             data in order to avoid unnecessary requests
+                             for recently or frequently used data.
+\paragraph{Additional Features} Some additional, but not crucial, features include proper camera handling,
+                               collision detection, atmospheric rendering 
+                               and support for a configuration file for 
+                               adjusting various parameters.
+
+\subsection{Restrictions}
+The following aspects were explicitly left out of scope of this thesis.
+
+\paragraph{Rigorous Testing and Deployment} The developed system serves as 
+                             a first proof-of-concept since this thesis 
+                              focuses mainly on the development of the features.
+                              For future further development after this thesis, rigorous testing and deployment
+                              is indespensable.
+
+\paragraph{Development and Deployment of Custom Terrain Data Servers} This thesis does not 
+                                                         include the development and deployment of custom terrain data servers.
+                                                         The focus of this thesis is on the client-side rather than on the server-side.
+
+\paragraph{Vector Tiles, 3D Buildings and Other Geospatial Features} This thesis focuses mainly on terrains.
+                                                                Incorporating other geospatial features, such as vector tiles,
+                                                                3D buildings, points-of-interests, etc. would 
+                                                                not be realistic in such a short timespan.
+
+\section{Intended Readership}
+The reader is assumed to be familiar with the basics of computer science,
+C++ programming and 3D computer graphics. The main concepts of terrain rendering will be introduced 
+when required in the subsequent chapters.
+
+\section{Notation and Terminology}
+This thesis uses the following mathematical notation:
+\begin{itemize}
+  \item By default, the coordinate system is a right-handed coordinate system with $y$ as the
+  up-direction, unless explicitly stated otherwise.
+  \item The set of natural numbers is denoted $\mathbb{N}$ and the set of real numbers is denoted $\mathbb{R}$.
+  \item Points in $\mathbb{R}^3$ are denoted $\mathbf{p} = (p_x, p_y, p_z)$.
+  \item Vectors in $\mathbb{R}^3$ are denoted $\mathbf{v} = (v_x, v_y, v_z)$.
+  \item Matrices in $\mathbb{R}^{n \times n}$ are denoted $\mathbf{M}$ and are column-major.
+  \item XYZ tile keys (introduced in chapter ``Theoretical Background'') are denoted $tk = (tk_x, tk_y, tk_z)$.
+  \item Geodetic coordinates (introduced in chapter ``Theoretical Background'') are denoted $\mathbf{p}_{geodetic} = (lon,lat,h)$.
+  \item The vector containing the globe radii for the geodetic-to-cartesian transformation (introduced in chapter ``Theoretical Background'') is denoted $\mathbf{r}_{ellipsoid} = (r_x, r_y, r_z)$.
+\end{itemize}
+
+\section{Structure of this Thesis}
+This thesis is structured as follows:
+\begin{itemize}
+  \item Chapter 2 introduces the reader to various topics covered in this thesis, such as 
+  the basics of terrain rendering and some concepts from geographical information systems.
+  \item Chapter 3 provides a short overview of previous work conducted in the area of real-time terrain rendering and streaming and 
+        gives a short recapitulation of the author's preceeding project ``3D Terrain with Level of Detail''.
+  \item Chapter 4 goes into the implementation details of \textit{StreamingATLOD}, the implemented streaming-based terrain renderer.
+        First, some preliminary information is given, such as the used data and technologies.
+        Afterwards, various aspects of StreamingATLOD are described in multiple sections.
+  \item Chapter 5 describes the results, including a selection of screenshots of the Earth and various performance benchmarks.
+  \item Chapter 6 gives a discussion of the obtained results.
+  \item Chapter 7 concludes this thesis with a summary and some potential improvements and future work.
+  \item Appendix A contains the time schedule for this thesis.
+  %\item Appendix B contains the usage guide for StreamingATLOD with installation and building steps.
+\end{itemize}

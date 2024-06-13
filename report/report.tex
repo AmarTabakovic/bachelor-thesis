@@ -1,0 +1,156 @@
+\documentclass[10pt,a4paper]{report} 
+
+\include{settings/settings}
+
+\begin{document}
+
+\title{
+\vspace{-80px}
+\includegraphics[width=5cm]{bfh-logo}\\
+\vspace{80px}
+\huge\textsf{\textbf{Implementation of a Real-time Streaming-based Terrain Level of Detail System}}\\
+\vspace{40px}
+\large{Bachelor Thesis
+by\\}
+\vspace{10px}
+\Large{Amar Tabakovic\\}
+\vspace{20px}
+\large{
+\textbf{Bern University of Applied Sciences}\\
+  Engineering and Information Technology\\
+  Computer Perception \& Virtual Reality Lab
+\\
+\vspace{15px}
+\textbf{Supervisor}\\
+Prof.~Marcus Hudritsch\\
+\vspace{15px}
+\textbf{External expert}\\
+Dr.~Eric Dubuis}\\
+\vspace{20px}
+\today
+}
+
+\date{}
+\maketitle
+
+\begin{abstract}
+Terrains are an important part of various practical applications of computer graphics, such as
+video games, flight simulators and geographical information systems.
+Since terrains are expensive to render, special rendering optimizations, such as level of detail (LOD).
+Besides the rendering performance, another important aspect to terrain rendering is the management of terrain data.
+Terrain datasets that are too large to fit entirely in memory must be streamed in
+from the disk or over the network and streamed out of memory.
+
+This thesis describes the implementation of StreamingATLOD, a large-scale 
+terrain rendering system with LOD
+that is capable of rendering the Earth by streaming in 
+height data and satellite imagery from web APIs based on the XYZ tiling scheme.
+StreamingATLOD is currently built around the data and APIs from the company MapTiler,
+which serve height data tiles and satellite imagery tiles. Both layers come 
+projected in the Web Mercator projection and are used up to zoom level 14, which corresponds to a precision of 9.5 meters per pixel.
+
+The implemented terrain LOD algorithm is mainly based on Chunked LOD.
+The terrain is organized as a quadtree, where 
+each quadtree node represents a section of the terrain 
+at the resolution of the node's depth.
+Each node gets rendered with heightmap-displacement in the vertex shader followed 
+by a projection onto the globe. In order to hide cracks between adjacent nodes,
+skirts are rendered. The Web Mercator projection cuts off at a latitude of 
+$85.05^\circ$, resulting in holes at the North and South Pole. These holes 
+get covered with a circular pole mesh.
+Terrain sections which are not visible are culled with view-frustum culling 
+and horizon culling.
+
+The terrain data is cached 
+in a memory cache and a disk cache. Both caches are least-recently used (LRU) caches,
+which automatically evict the least-recently used data upon reaching the maximum capacity, 
+thus keeping only the most necessary terrain data in memory and on the disk respectively.
+New terrain data is streamed in with separate load worker threads,
+allowing the render thread to continue rendering while data is loaded 
+in the background. The load worker threads load data either from 
+the disk cache or from the web API.
+Disk cache entries that need to be evicted 
+are deleted from the disk using a separate disk deallocation thread.
+
+StreamingATLOD's rendering and streaming performance were benchmarked 
+on a 2020 Intel MacBook Air with the disk caching disabled. StreamingATLOD yielded 
+on average around 60 frames per second and was able to load 
+the data required for rendering at a reasonable speed.
+
+Some technical aspects in which StreamingATLOD could be improved are 
+prioritized loading of terrain data, better high precision support
+and rendering transitions between LOD level changes.
+Possible extensions and future work include incorporating 
+a realistic atmosphere, supporting multiple tile layers and
+extending StreamingATLOD into a software development kit. 
+
+\end{abstract}
+
+\renewcommand\lstlistlistingname{List of Listings}
+
+\tableofcontents
+
+\listoftables
+\listoffigures
+\lstlistoflistings
+
+\chapter*{Preface}
+\thispagestyle{empty}
+\section*{Personal Motivation}
+Why terrain rendering? It all started during the 
+fourth semester of my studies, 
+where I had to choose a topic for 
+the preceeding project course ``Project 2''. 
+I saw in the list of project proposals that 
+terrain level of detail was one 
+of the offered topics and after a first quick research
+on the topic, I was hooked immediately, not
+only because I found terrain rendering interesting and visually stunning, 
+but mainly because I had the opportunity to challenge myself
+with a (subjectively) difficult topic.
+As part of the preceeding project, I implemented a small terrain  
+renderer with LOD which worked decently and served 
+as a good base for further work and exploration.
+But I wanted to render the probably most extreme 
+and well-known example of a terrain there is: 
+the entire Earth.
+This of course meant tackling entirely new challenges,
+such as geographic projections,
+multithreading, streaming and caching of terrain data,
+but this is exactly what made this project more exciting.
+In the end, the opportunity of working a project like this 
+does not come every day.
+
+\section*{Acknowledegments}
+I would like to thank Prof. Marcus Hudritsch 
+for the opportunity to write this thesis
+and for our the pleasant cooperation.
+I always enjoyed our weekly meetings
+and your support. I would also 
+like to thank Dr. Eric Dubuis 
+for supervising this thesis and for 
+his crucial inputs during our intermediate meeting.
+Also thanks to Marino for joining the weekly meetings 
+towards the end of the thesis.
+
+I would finally like to thank my family and my 
+girlfriend Cristina for supporting me throughout 
+my studies.
+
+\clearpage
+
+
+\include{chapters/introduction}
+\include{chapters/theoretical-background}
+\include{chapters/previous-work}
+\include{chapters/streaming-atlod}
+\include{chapters/results}
+\include{chapters/discussion}
+\include{chapters/conclusion}
+
+\bibliography{bibliography}
+\addcontentsline{toc}{chapter}{Bibliography}
+
+\include{chapters/appendix}
+
+\end{document}

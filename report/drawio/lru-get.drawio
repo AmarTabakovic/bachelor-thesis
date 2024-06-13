@@ -1,0 +1,112 @@
+<mxfile host="app.diagrams.net" modified="2024-05-22T11:00:45.937Z" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:126.0) Gecko/20100101 Firefox/126.0" etag="8gRmLyvqMUzJco8NKyG7" version="24.4.4" type="device">
+  <diagram name="Page-1" id="UbK50TtgAadjAq-dhs9q">
+    <mxGraphModel dx="786" dy="454" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="1" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-13" value="&lt;div&gt;\(\text{Cache before }\)&lt;/div&gt;&lt;div&gt;\(\texttt{get(T3)}\)&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="95" y="145" width="110" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-21" value="" style="endArrow=classicThin;html=1;rounded=0;endFill=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="379.71" y="200" as="sourcePoint" />
+            <mxPoint x="379.71" y="230" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-22" value="" style="endArrow=classicThin;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=1;dashed=1;endFill=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="420" y="300" as="sourcePoint" />
+            <mxPoint x="260" y="300" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="420" y="330" />
+              <mxPoint x="260" y="330" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-25" value="" style="endArrow=classicThin;html=1;rounded=0;endFill=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="379.71" y="350" as="sourcePoint" />
+            <mxPoint x="379.71" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-32" value="" style="endArrow=classicThin;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=1;dashed=1;endFill=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="300" y="450" as="sourcePoint" />
+            <mxPoint x="200" y="430" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="300" y="480" />
+              <mxPoint x="220" y="480" />
+              <mxPoint x="220" y="430" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-33" value="&lt;div&gt;\(\texttt{T3} \text{ is returned}\)&lt;/div&gt;&lt;div&gt;\(\text{to the caller}\)&lt;br&gt;&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="220" y="490" width="80" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-34" value="&lt;div&gt;\(\text{Push } \texttt{T3}\)&amp;nbsp;&lt;/div&gt;&lt;div&gt;\(\text{ to front}\)&lt;br&gt;&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="95" y="255" width="110" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-35" value="&lt;div&gt;\(\text{Cache after }\)&lt;/div&gt;&lt;div&gt;\(\texttt{get(T3)}\)&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="95" y="410" width="110" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-36" value="\(\texttt{T1}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="480" y="140" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-37" value="\(\texttt{T2}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="440" y="140" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-38" value="\(\texttt{T3}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="400" y="140" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-39" value="\(\texttt{T4}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="360" y="140" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-40" value="\(\texttt{T5}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="320" y="140" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-41" value="\(\texttt{T6}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="280" y="140" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-42" value="\(\texttt{T1}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="480" y="250" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-43" value="\(\texttt{T2}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="440" y="250" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-44" value="\(\texttt{T3}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="240" y="250" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-45" value="\(\texttt{T4}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="360" y="250" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-46" value="\(\texttt{T5}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="320" y="250" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-47" value="\(\texttt{T6}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="280" y="250" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-48" value="" style="whiteSpace=wrap;html=1;aspect=fixed;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="400" y="250" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-49" value="\(\texttt{T1}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="480" y="405" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-50" value="\(\texttt{T2}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="440" y="405" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-51" value="\(\texttt{T3}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="280" y="405" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-52" value="\(\texttt{T4}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="400" y="405" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-53" value="\(\texttt{T5}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="360" y="405" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gxxax1Ul8_z5FCz63yeo-54" value="\(\texttt{T6}\)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="320" y="405" width="40" height="40" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
