@@ -39,8 +39,6 @@ To learn more about this project, feel free to read more about it [here](https:/
 The only requirement for building and running StreamingATLOD is 
 that libcurl is installed on your system. All other used 
 libraries are built from source. 
-In the StreamingATLOD folder, there are already two build folders 
-with executables for Apple Intel and Apple ARM.
 
 ### Linux and Mac OS
 1. Clone repository
