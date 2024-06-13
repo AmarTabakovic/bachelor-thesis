@@ -19,7 +19,7 @@
 #include "renderstatistics.h"
 #include "shader.h"
 #include "skirtmesh.h"
-#include "unloadworkerthread.h"
+#include "diskdeallocationworkerthread.h"
 #include "xyztilekey.h"
 class TerrainNode;
 
@@ -36,11 +36,12 @@ class TerrainManager {
 public:
     TerrainManager(RenderStatistics& stats, unsigned lowResMesh, unsigned mediumResMesh, unsigned highResMesh, unsigned memCacheSize, unsigned diskCacheSize);
     void setup();
-    void initDiskCache();
     void shutdown();
-
     void render(Camera& camera, bool wireframe, bool aabb, bool& collision, float& verticalCollisionOffset);
-    void renderTile(Camera& camera, TerrainNode* tile, TileResolution resolution, bool wireframe, bool aabb);
+
+    // private:
+    void initDiskCache();
+    void renderNode(Camera& camera, TerrainNode* node, TileResolution resolution, bool wireframe, bool aabb);
 
     void collectRenderable(Camera& camera, XYZTileKey currentTileKey, std::queue<std::string>& visibleTiles, XYZTileKey& minimumDistanceTileKey, float& minimumDistance);
     void requestChildren(XYZTileKey tileKey);
@@ -53,28 +54,23 @@ public:
 
     void processSingleDoneQueueElement();
     void processAllDoneQueue();
-
     void processAllUnloadDoneQueue();
 
     float computeBaseDistWithLatitude(XYZTileKey tileKey);
 
-    void initTerrainTile(LoadResponse response);
-
-    void requestTile(XYZTileKey tileKey);
+    void initTerrainNode(LoadResponse response);
+    void requestNode(XYZTileKey tileKey);
 
     void loadHeightmapTexture();
-
     void loadOverlayTexture();
 
-    bool checkEviction(std::string tileKey, TerrainNode* tile);
+    bool checkEviction(XYZTileKey tileKey, TerrainNode* tile);
 
-    // private:
+    std::unordered_set<XYZTileKey> _loadingTiles;
 
-    std::unordered_set<std::string> _loadingTiles;
-
-    LRUCache<std::string, TerrainNode*> _memoryCache;
-    LRUCache<std::string, void*> _diskCache; /* Key only LRU cache for tiles
-                                              * on disk */
+    LRUCache<XYZTileKey, TerrainNode*> _memoryCache;
+    LRUCache<XYZTileKey, void*> _diskCache; /* Key only LRU cache for tiles
+                                             * on disk */
 
     /* ============================= Threading ============================= */
     unsigned _numLoadWorkers;
@@ -82,9 +78,9 @@ public:
     std::vector<MessageQueue<LoadRequest>*> _loadRequestQueues;
     std::vector<LoadWorkerThread*> _loadWorkerThreads;
 
-    MessageQueue<UnloadRequest>* _unloadRequestQueue;
-    MessageQueue<UnloadResponse>* _unloadDoneQueue;
-    UnloadWorkerThread* _unloadWorker;
+    MessageQueue<DiskDeallocationRequest>* _unloadRequestQueue;
+    MessageQueue<DiskDeallocationResponse>* _unloadDoneQueue;
+    DiskDeallocationWorkerThread* _unloadWorker;
     int _currentLoadThread = 0;
 
     /* Contains tile keys for nodes that are currenly in the disk unload
@@ -92,12 +88,12 @@ public:
      * the web API while inside it, otherwise race conditions or file system
      * inconsistencies might occur. Since the nodes currently being evicted
      * are LRU, they are unlikely to be requested soon anyway. */
-    std::unordered_set<std::string> _currentDiskCacheEvictions;
+    std::unordered_set<XYZTileKey> _currentDiskCacheEvictions;
 
     /* Contains tile keys which cannot be loaded (i.e. API doesn't serve them,
      * for e.g. oceans at high zoom levels). This is so that each we don't
      * waste unneccessary requests if a tile cannot be loaded anyway. */
-    std::unordered_set<std::string> _unloadableTileKeys;
+    std::unordered_set<XYZTileKey> _unloadableTileKeys;
 
     TerrainNode* _root;
 
@@ -119,10 +115,7 @@ public:
 
     RenderStatistics& _stats;
 
-    unsigned _maxZoom;
-    unsigned _minZoom;
-
-    glm::vec3 _globeRadiiSquared;
+    // glm::vec3 _globeRadiiSquared;
 
     float _timeToLiveMillis = 1000.0f * 5;
 
@@ -130,6 +123,9 @@ public:
     unsigned _heightmapWidth, _heightmapHeight;
     unsigned _overlayWidth, _overlayHeight;
     unsigned _numberOfRequestedTiles = 0;
+
+    bool _offlineWait = false;
+    std::chrono::system_clock::time_point _lastNetworkError;
 };
 
 #endif // TERRAINMANAGER_H

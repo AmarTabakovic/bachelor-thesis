@@ -7,6 +7,9 @@
 #include <tuple>
 #include <unordered_map>
 
+/**
+ * @brief The PutResult class
+ */
 template <typename K, typename V>
 struct PutResult {
     bool evicted;
@@ -28,16 +31,23 @@ private:
     unsigned _capacity;
     std::list<std::pair<K, V>> _items;
     std::unordered_map<K, typename std::list<std::pair<K, V>>::iterator> _cache;
-    float _evictWhenLoad = 1.0f;
-    std::function<bool(const K&, const V&)> _canEvict;
 
 public:
+    /**
+     * @brief LRUCache
+     * @param capacity
+     */
     LRUCache(int capacity)
         : _capacity(capacity)
     {
         _cache.reserve(capacity);
     }
 
+    /**
+     * @brief get
+     * @param key
+     * @return
+     */
     std::optional<V> get(const K& key)
     {
         /* Item not found */
@@ -49,16 +59,31 @@ public:
         return _cache[key]->second;
     }
 
+    /**
+     * @brief size
+     * @return
+     */
     unsigned size()
     {
         return _items.size();
     }
 
+    /**
+     * @brief contains
+     * @param key
+     * @return
+     */
     bool contains(const K& key) const
     {
         return _cache.find(key) != _cache.end();
     }
 
+    /**
+     * @brief put
+     * @param key
+     * @param value
+     * @return
+     */
     PutResult<K, V> put(const K& key, const V& value)
     {
         PutResult<K, V> result { false, std::nullopt };
@@ -71,7 +96,7 @@ public:
         }
 
         /* Evict LRU item */
-        if (_items.size() >= _evictWhenLoad * _capacity) {
+        if (_items.size() >= _capacity) {
             auto last = _items.back();
             _cache.erase(last.first);
             result.evicted = true;

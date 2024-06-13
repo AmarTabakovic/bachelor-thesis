@@ -7,6 +7,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(APP_TARGET streaming-atlod)
 
+# Currently only for Macs with homebrew
+#set(OPENSSL_ROOT_DIR /usr/local/opt/openssl@3)
+#set(OPENSSL_LIBRARIES ${OPENSSL_ROOT_DIR}/lib)
+
+find_package(CURL REQUIRED)
+
+include_directories(${CURL_INCLUDE_DIRS})
+
 add_executable(${APP_TARGET}
     src/main.cpp
     src/application.cpp
@@ -14,11 +22,16 @@ add_executable(${APP_TARGET}
     src/camera.cpp
     src/skybox.cpp
     src/util.cpp
-    src/terrain/terrainmanager.cpp
-    src/terrain/terraintile.cpp
-    src/terrain/terraincache.cpp
-    src/terrain/gridmesh.cpp
-    src/terrain/skirtmesh.cpp
+    src/terrainmanager.cpp
+    src/terrainnode.cpp
+    src/gridmesh.cpp
+    src/skirtmesh.cpp
+    src/configmanager.cpp
+    src/xyztilekey.cpp
+    src/loadworkerthread.cpp
+    src/diskdeallocationworkerthread.cpp
+    src/polemesh.cpp
+    src/aabbmesh.cpp
 )
 
 
@@ -28,6 +41,7 @@ add_subdirectory(lib/glfw EXCLUDE_FROM_ALL)
 add_subdirectory(lib/glew EXCLUDE_FROM_ALL)
 add_subdirectory(lib/glm EXCLUDE_FROM_ALL)
 add_subdirectory(lib/libwebp EXCLUDE_FROM_ALL)
+#add_subdirectory(lib/curl EXCLUDE_FROM_ALL)
 # add_subdirectory(lib/imgui EXCLUDE_FROM_ALL)
 
 # Set where the ImGui files are stored
@@ -64,7 +78,9 @@ target_link_libraries(${APP_TARGET}
   PRIVATE libglew_static
   PRIVATE glm
   PRIVATE webp
+  #PRIVATE libcurl
   PUBLIC imgui
+  ${CURL_LIBRARIES}
 )
 
 #target_include_directories(atlod

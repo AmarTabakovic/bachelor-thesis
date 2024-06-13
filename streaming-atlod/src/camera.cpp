@@ -60,10 +60,7 @@ bool Camera::insideViewFrustum(glm::vec3 p1, glm::vec3 p2)
     checked += checkPlane(frustum.nearFace, p1, p2);
     checked += checkPlane(frustum.farFace, p1, p2);
 
-    /* This is a temporary hack because some AABBs are wrongly detected
-     * as outside of the frustum, which should be investigated in the
-     * nearer future */
-    return checked >= 5;
+    return checked == 6;
 }
 
 bool Camera::checkPlane(Plane& plane, glm::vec3 p1, glm::vec3 p2)
@@ -71,13 +68,15 @@ bool Camera::checkPlane(Plane& plane, glm::vec3 p1, glm::vec3 p2)
     float minY = p1.y;
     float maxY = p2.y;
     float width = p2.x - p1.x;
+    float depth = p2.z - p1.z;
     glm::vec3 aabbCenter = p1 + ((p2 - p1) / 2.0f);
 
     float halfHeight = (maxY - minY) / 2.0f;
-    float halfBlockSize = width / 2.0f;
-    float r = halfBlockSize * std::abs(plane.normal.x)
+    float halfBlockWidth = width / 2.0f;
+    float halfBlockDepth = depth / 2.0f;
+    float r = halfBlockWidth * std::abs(plane.normal.x)
         + halfHeight * std::abs(plane.normal.y)
-        + halfBlockSize * std::abs(plane.normal.z);
+        + halfBlockDepth * std::abs(plane.normal.z);
 
     return -r <= plane.getSignedDistanceToPlane(aabbCenter);
 }

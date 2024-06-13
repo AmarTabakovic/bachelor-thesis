@@ -11,10 +11,10 @@ struct RenderStatistics {
     unsigned numberOfNodes = 0;
     unsigned deepestZoomLevel = 0;
     unsigned currentlyRequested = 0;
-    unsigned visibleTiles = 0;
+    unsigned visibleNodes = 0;
     unsigned traversedNodes = 0;
     unsigned numberOfDiskCacheEntries = 0;
-    bool waitDealloc = false;
+    bool waitOffline = false;
 };
 
 #endif // RENDERSTATISTICS_H

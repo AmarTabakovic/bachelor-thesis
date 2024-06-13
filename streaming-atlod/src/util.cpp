@@ -15,7 +15,12 @@ void Util::checkGlError(const std::string& message)
     }
 }
 
-std::string Util::vec3ToString(glm::vec3 vec)
+/**
+ * @brief Util::vec3ToString
+ * @param vec
+ * @return
+ */
+std::string Util::vec3ToString(const glm::vec3& vec)
 {
     return "(" + std::to_string(vec.x) + ", " + std::to_string(vec.y) + ", " + std::to_string(vec.z) + ")";
 }

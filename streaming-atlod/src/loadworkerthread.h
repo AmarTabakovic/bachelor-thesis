@@ -4,6 +4,7 @@
 #include "messagequeue.h"
 #include "terrainnode.h"
 #include "xyztilekey.h"
+#include <curl/curl.h>
 #include <thread>
 
 enum LoadResponseType {
@@ -42,7 +43,7 @@ struct LoadResponse {
     XYZTileKey tileKey;
     unsigned char* heightData; /* Must be deallocated with delete[] imageData */
     unsigned char* overlayData; /* Must be deallocated with stbi_image_free(overlayData) */
-    TerrainNode* tile;
+    TerrainNode* node;
     int overlayWidth, overlayHeight, overlayNrChannels;
     int heightWidth, heightHeight;
     LoadResponseOrigin origin;
@@ -76,7 +77,7 @@ public:
     std::thread _thread;
     bool _stopThread = false;
 
-    bool _offlineMode = true;
+    CURL* _curl;
 };
 
 #endif // LOADWORKERTHREAD_H

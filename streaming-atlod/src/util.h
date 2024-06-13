@@ -6,7 +6,7 @@
 
 namespace Util {
 void checkGlError(const std::string& message);
-std::string vec3ToString(glm::vec3 vec);
+std::string vec3ToString(const glm::vec3& vec);
 }
 
 #endif // UTIL_H

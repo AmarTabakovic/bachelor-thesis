@@ -33,6 +33,9 @@ GLFWwindow* window;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+double fpsSum = 0.0f;
+unsigned fpsCount = 0;
+
 TerrainManager* terrainManager;
 Skybox* skybox;
 std::string skyboxFolderName = "simple-gradient"; /* Default skybox, can be overwritten */
@@ -95,20 +98,21 @@ void showSidebar()
     if (ImGui::Begin("Sidebar", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
         ImGui::Text("Draw calls: %d", globalRenderStats.drawCalls);
         ImGui::Text("Rendered triangles: %d", globalRenderStats.renderedTriangles);
-        ImGui::Text("Number of visible nodes: %d", globalRenderStats.visibleTiles);
+        ImGui::Text("Number of visible nodes: %d", globalRenderStats.visibleNodes);
         ImGui::Text("Number of traversed nodes: %d", globalRenderStats.traversedNodes);
         ImGui::Text("Number of requested nodes: %d", globalRenderStats.currentlyRequested);
         ImGui::Text("Number of allocated nodes: %d", globalRenderStats.numberOfNodes);
         ImGui::Text("Number of nodes in the disk cache: %d", globalRenderStats.numberOfDiskCacheEntries);
+        ImGui::Text("Offline wait: %s", globalRenderStats.waitOffline ? "true" : "false");
+        ImGui::Text("Average FPS: %.2f", ((float)fpsSum / (float)(fpsCount)));
         ImGui::Text("API requests: %d", globalRenderStats.apiRequests);
-        ImGui::Text("Lon/Lat/Height: : (%.2f, %.2f, %.2f)", glm::degrees(camera._lon), glm::degrees(camera._lat), camera._height);
-        ImGui::Text("Wait for deallocation: %s", globalRenderStats.waitDealloc ? "true" : "false");
-        ImGui::Text("Memory usage (nodes): %.2f MB", (float)globalRenderStats.numberOfNodes * ((512 * 512 * 3) + (512 * 512 * 4 * 1.33) + sizeof(TerrainNode)) / 1000000.0f);
+        ImGui::Text("Mem. for overlay & heightmap\ntextures: %.2f MB", (float)globalRenderStats.numberOfNodes * ((512 * 512 * 3) + (512 * 512 * 3 * 1.33)) / 1000000.0f);
         ImGui::Text("Deepest level: %d", globalRenderStats.deepestZoomLevel);
         ImGui::Text("Cam pos (WS): (%.2f, %.2f, %.2f)", camera.position().x, camera.position().y, camera.position().z);
-        ImGui::Text("Cam front: %s", Util::vec3ToString(camera.front()).c_str());
-        ImGui::Text("Cam up: %s", Util::vec3ToString(camera.up()).c_str());
-        ImGui::Text("Cam right: %s", Util::vec3ToString(camera.right()).c_str());
+        ImGui::Text("Cam front: (%.2f, %.2f, %.2f)", camera.front().x, camera.front().y, camera.front().z);
+        ImGui::Text("Cam up: (%.2f, %.2f, %.2f)", camera.up().x, camera.up().y, camera.up().z);
+        ImGui::Text("Cam right: (%.2f, %.2f, %.2f)", camera.right().x, camera.right().y, camera.right().z);
+        ImGui::Text("\n\nData from Maptiler and \nOpenStreetMap contributors");
     }
     ImGui::End();
 }
@@ -210,7 +214,7 @@ void run()
     /* Load skybox */
     skybox = new Skybox();
     skybox->loadBuffers();
-    skybox->loadTexture("../../data/skybox/" + skyboxFolderName + "/");
+    skybox->loadTexture(ConfigManager::getInstance()->dataPath() + "skybox/" + skyboxFolderName + "/");
 
     terrainManager = new TerrainManager(globalRenderStats, 16, 32, 32, 400, 2000);
     terrainManager->setup();
@@ -218,6 +222,8 @@ void run()
     while (!glfwWindowShouldClose(window)) {
         frame();
     }
+
+    shutDown();
 }
 
 /**
@@ -247,6 +253,14 @@ void frame()
     deltaTime = currentFrame - lastFrame;
     lastFrame = currentFrame;
 
+    /* Add FPS to sum for average FPS calculation */
+    fpsSum += (1.0f / deltaTime);
+    fpsCount++;
+
+    /* Update window title with framerate */
+    std::string newTitle = "StreamingATLOD: " + std::to_string((int)std::round(1.0f / deltaTime)) + " FPS";
+    glfwSetWindowTitle(window, newTitle.c_str());
+
     processInput();
 
     /* Update window if resized */
@@ -266,17 +280,10 @@ void frame()
 
     updateGlobalUniforms();
 
-    /*if (doWire)
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);*/
-
     bool collided = false;
     terrainManager->render(lastCam, doWire, doAabb, collided, verticalCollisionOffset);
 
     camera.verticalCollisionOffset = verticalCollisionOffset;
-    if (collided) {
-    }
-
-    // glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     skybox->shader().use();
     skybox->render();
@@ -341,6 +348,14 @@ void updateGlobalUniforms()
     skybox->shader().setMat4("projection", projection);
     skybox->shader().setMat4("view", view);
     skybox->shader().setVec3("cameraPos", lastCam.position());
+    glm::vec3 earthNormal = glm::normalize(camera.position());
+    glm::vec3 earthRight = glm::normalize(glm::cross(earthNormal, glm::vec3(0, 1, 0)));
+    glm::vec3 earthFront = -1.0f * glm::normalize(glm::cross(earthNormal, earthRight));
+    glm::mat4 earthSystem = glm::mat4(glm::vec4(earthRight, 0),
+        glm::vec4(earthNormal, 0),
+        glm::vec4(earthFront, 0),
+        glm::vec4(0, 0, 0, 1));
+    skybox->shader().setMat4("model", earthSystem);
 }
 
 /**
@@ -410,6 +425,13 @@ void keyboardInputCallback(GLFWwindow* window, int key, int scanCode, int action
     }
 }
 
+/**
+ * @brief mouseButtonCallback
+ * @param window
+ * @param button
+ * @param action
+ * @param mods
+ */
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
@@ -421,12 +443,17 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
         }
     }
 }
-
+/**
+ * @brief cursorPositionCallback
+ * @param window
+ * @param xPos
+ * @param yPos
+ */
 void cursorPositionCallback(GLFWwindow* window, double xPos, double yPos)
 {
     if (leftMouseButtonPressed) {
         float xOffset = xPos - lastX;
-        float yOffset = lastY - yPos; // Reversed since y-coordinates go from bottom to top
+        float yOffset = lastY - yPos; /* Reversed since y-coordinates go from bottom to top */
         lastX = xPos;
         lastY = yPos;
 

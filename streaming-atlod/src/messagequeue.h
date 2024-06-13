@@ -33,12 +33,7 @@ public:
     std::optional<T> pop()
     {
         std::unique_lock<std::mutex> lock(_mutex);
-        // TODO: I SHOULD wait when the queue is empty...
-        /*while (_queue.empty()) {
-            std::cout << "sleep" << std::endl;
-            _cond.wait(lock);
-        }*/
-        if (_queue.empty()) { // TODO: TEMOPRARY HACKY FIX
+        if (_queue.empty()) {
             return std::nullopt;
         }
         T message = std::move(_queue.front());

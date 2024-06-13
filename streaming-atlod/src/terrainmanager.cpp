@@ -4,6 +4,7 @@
 
 #include "../stb_image.h"
 #include "configmanager.h"
+#include "globalconstants.h"
 #include "mapprojections.h"
 #include "util.h"
 #include <algorithm>
@@ -15,19 +16,20 @@
  */
 TerrainManager::TerrainManager(RenderStatistics& stats, unsigned lowResMesh, unsigned mediumResMesh, unsigned highResMesh, unsigned memCacheSize, unsigned diskCacheSize)
     : _stats(stats)
-    , _memoryCache(ConfigManager::getInstance()->_memoryCacheSize)
-    , _diskCache(ConfigManager::getInstance()->_diskCacheSize)
+    , _memoryCache(ConfigManager::getInstance()->memoryCacheSize())
+    , _diskCache(ConfigManager::getInstance()->diskCacheSize())
 {
-    _terrainShader = Shader("../src/glsl/terrain.vert", "../src/glsl/terrain.frag");
-    _skirtShader = Shader("../src/glsl/skirt.vert", "../src/glsl/skirt.frag");
-    _poleShader = Shader("../src/glsl/pole.vert", "../src/glsl/pole.frag");
-    _aabbShader = Shader("../src/glsl/aabb.vert", "../src/glsl/aabb.frag");
+    std::string dataPath = ConfigManager::getInstance()->dataPath();
 
-    _tileSideLengthHighRes = ConfigManager::getInstance()->_highMeshRes;
-    _tileSideLengthLowRes = ConfigManager::getInstance()->_lowMeshRes;
-    _tileSideLengthMediumRes = ConfigManager::getInstance()->_mediumMeshRes;
+    /* TODO: The below could be improved */
+    _terrainShader = Shader((dataPath + "glsl/terrain.vert").c_str(), (dataPath + "glsl/terrain.frag").c_str());
+    _skirtShader = Shader((dataPath + "glsl/skirt.vert").c_str(), (dataPath + "glsl/skirt.frag").c_str());
+    _poleShader = Shader((dataPath + "glsl/pole.vert").c_str(), (dataPath + "glsl/pole.frag").c_str());
+    _aabbShader = Shader((dataPath + "glsl/aabb.vert").c_str(), (dataPath + "glsl/aabb.frag").c_str());
 
-    _globeRadiiSquared = glm::vec3(100000.0f, 100000.0f, 100000.0f);
+    _tileSideLengthLowRes = ConfigManager::getInstance()->lowMeshRes();
+    _tileSideLengthMediumRes = ConfigManager::getInstance()->mediumMeshRes();
+    _tileSideLengthHighRes = ConfigManager::getInstance()->highMeshRes();
 
     /* Uniforms defined once */
     _terrainShader.use();
@@ -35,28 +37,29 @@ TerrainManager::TerrainManager(RenderStatistics& stats, unsigned lowResMesh, uns
     _terrainShader.setInt("heightmapTexture", 1);
     _terrainShader.setFloat("textureWidth", 512);
     _terrainShader.setFloat("textureHeight", 512);
-    _terrainShader.setVec3("globeRadiusSquared", _globeRadiiSquared);
+    _terrainShader.setVec3("globeRadiusSquared", GlobalConstants::GLOBE_RADII_SQUARED);
 
     _skirtShader.use();
     _skirtShader.setInt("overlayTexture", 0);
     _skirtShader.setInt("heightmapTexture", 1);
     _skirtShader.setFloat("textureWidth", 512);
     _skirtShader.setFloat("textureHeight", 512);
-    _skirtShader.setVec3("globeRadiusSquared", _globeRadiiSquared);
+    _skirtShader.setVec3("globeRadiusSquared", GlobalConstants::GLOBE_RADII_SQUARED);
 
-    glm::vec3 circleMeshBorder = MapProjections::geodeticToCartesian(_globeRadiiSquared,
+    glm::vec3 circleMeshBorder = MapProjections::geodeticToCartesian(GlobalConstants::GLOBE_RADII_SQUARED,
         glm::vec3(0, 0, glm::radians(85.0511f)));
-    glm::vec3 circleMeshCenter = glm::vec3(0, glm::sqrt(_globeRadiiSquared).y, 0);
+
+    glm::vec3 circleMeshCenter = glm::vec3(0, GlobalConstants::GLOBE_RADII.y, 0);
     float circleMeshRadius = glm::length(circleMeshCenter - circleMeshBorder);
     float circleMeshHeightDifference = circleMeshCenter.y - circleMeshBorder.y;
 
     _poleShader.use();
-    _poleShader.setFloat("globeRadiusY", glm::sqrt(_globeRadiiSquared.y));
+    _poleShader.setFloat("globeRadiusY", glm::sqrt(GlobalConstants::GLOBE_RADII_SQUARED.y));
     _poleShader.setFloat("poleRadius", circleMeshRadius);
     _poleShader.setFloat("heightDelta", circleMeshHeightDifference);
 
     /* Define threads */
-    _numLoadWorkers = ConfigManager::getInstance()->_numLoadWorkers;
+    _numLoadWorkers = ConfigManager::getInstance()->numLoadWorkers();
     _loadRequestQueues.reserve(_numLoadWorkers);
     _loadWorkerThreads.reserve(_numLoadWorkers);
 
@@ -68,15 +71,12 @@ TerrainManager::TerrainManager(RenderStatistics& stats, unsigned lowResMesh, uns
         _loadWorkerThreads.push_back(new LoadWorkerThread(loadRequestQueue, _doneQueue));
     }
 
-    _unloadRequestQueue = new MessageQueue<UnloadRequest>;
-    _unloadDoneQueue = new MessageQueue<UnloadResponse>;
+    _unloadRequestQueue = new MessageQueue<DiskDeallocationRequest>;
+    _unloadDoneQueue = new MessageQueue<DiskDeallocationResponse>;
 
-    _unloadWorker = new UnloadWorkerThread(_unloadRequestQueue, _unloadDoneQueue);
+    _unloadWorker = new DiskDeallocationWorkerThread(_unloadRequestQueue, _unloadDoneQueue);
 
     Util::checkGlError("SHADER FAILED");
-
-    _maxZoom = 14;
-    _minZoom = 0;
 }
 
 /**
@@ -119,15 +119,19 @@ void TerrainManager::setup()
     _unloadWorker->startInAnotherThread();
 
     /* Load root node */
-    requestTile(XYZTileKey(0, 0, 0));
+    requestNode(XYZTileKey(0, 0, 0));
 }
 
-void TerrainManager::initTerrainTile(LoadResponse response)
+/**
+ * @brief TerrainManager::initTerrainTile
+ * @param response
+ */
+void TerrainManager::initTerrainNode(LoadResponse response)
 {
-    TerrainNode* tile = response.tile;
+    TerrainNode* node = response.node;
 
-    glGenTextures(1, &tile->_overlayTextureId);
-    glBindTexture(GL_TEXTURE_2D, tile->_overlayTextureId);
+    glGenTextures(1, &node->_overlayTextureId);
+    glBindTexture(GL_TEXTURE_2D, node->_overlayTextureId);
 
     Util::checkGlError("OVERLAY LOAD FAILED");
 
@@ -144,8 +148,8 @@ void TerrainManager::initTerrainTile(LoadResponse response)
 
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    glGenTextures(1, &tile->_heightmapTextureId);
-    glBindTexture(GL_TEXTURE_2D, tile->_heightmapTextureId);
+    glGenTextures(1, &node->_heightmapTextureId);
+    glBindTexture(GL_TEXTURE_2D, node->_heightmapTextureId);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -161,9 +165,8 @@ void TerrainManager::initTerrainTile(LoadResponse response)
 
     /* Free overlay main memory, but keep height data for later usage */
     stbi_image_free(response.overlayData);
-    // delete[] response.heightData;
 
-    auto result = _memoryCache.put(tile->_xyzTileKey.string(), tile);
+    auto result = _memoryCache.put(node->_xyzTileKey.string(), node);
     if (result.evicted) {
         auto evictedKey = result.evictedItem.value().first;
         auto* evictedTile = result.evictedItem.value().second;
@@ -186,7 +189,6 @@ void TerrainManager::initTerrainTile(LoadResponse response)
          * this while loop occur rarely.
          */
         while (!checkEviction(evictedKey, evictedTile)) {
-            std::cout << "CHECK EVICTION FAILED " << evictedKey << std::endl;
             result = _memoryCache.put(evictedKey, evictedTile);
             evictedKey = result.evictedItem.value().first;
             evictedTile = result.evictedItem.value().second;
@@ -194,62 +196,35 @@ void TerrainManager::initTerrainTile(LoadResponse response)
 
         glDeleteTextures(1, &evictedTile->_heightmapTextureId);
         glDeleteTextures(1, &evictedTile->_overlayTextureId);
-        delete[] evictedTile->_heightData;
-        // evictedTile->unloadHeightmap();
-        // evictedTile->unloadOverlay();
 
+        delete[] evictedTile->_heightData;
         delete evictedTile;
     }
 
     /* Do the same as above but for disk eviction */
-    auto diskResult = _diskCache.put(tile->_xyzTileKey.string(), nullptr);
+    auto diskResult = _diskCache.put(node->_xyzTileKey.string(), nullptr);
     if (diskResult.evicted) {
         auto evictedKey = diskResult.evictedItem.value().first;
         while (!checkEviction(evictedKey, nullptr) || _loadingTiles.count(evictedKey)) {
-            std::cout << "DISK CHECK EVICTION FAILED " << evictedKey << std::endl;
             diskResult = _diskCache.put(evictedKey, nullptr);
             evictedKey = diskResult.evictedItem.value().first;
         }
         _currentDiskCacheEvictions.insert(evictedKey);
-        // std::cout << "Inserted for eviction disk cache: " << evictedKey << std::endl;
         _unloadRequestQueue->push({ evictedKey, UNLOAD_REQUEST });
     }
 }
 
-/* TOCO: Create checkDiskEviction*/
-bool TerrainManager::checkEviction(std::string tileKey, TerrainNode* tile)
+/**
+ * TODO: Create checkDiskEviction and checkMemoryEviction?
+ *
+ * @brief TerrainManager::checkEviction
+ * @param tileKey
+ * @param tile
+ * @return
+ */
+bool TerrainManager::checkEviction(XYZTileKey tileKey, TerrainNode* tile)
 {
-    return !hasChildren(XYZTileKey(tileKey)) && tileKey != "0/0/0";
-}
-
-void TerrainManager::processSingleDoneQueueElement()
-{
-
-    std::optional<LoadResponse> responseMaybe = _doneQueue->pop();
-
-    /* Empty response */
-    if (!responseMaybe)
-        return;
-
-    LoadResponse response = responseMaybe.value();
-    _numberOfRequestedTiles--;
-    _loadingTiles.erase(response.tileKey.string());
-
-    /* Handle potential errors or unloadable tiles */
-    if (response.type == LOAD_UNLOADABLE) {
-        /* Dealloc on failure */
-        _unloadableTileKeys.insert(response.tileKey.string());
-        if (response.heightData != nullptr) {
-            delete[] response.heightData;
-        }
-        if (response.overlayData != nullptr) {
-            stbi_image_free(response.overlayData);
-        }
-        delete response.tile;
-        return;
-    }
-
-    initTerrainTile(response);
+    return !hasChildren(tileKey) && tileKey != XYZTileKey(0, 0, 0);
 }
 
 /**
@@ -263,33 +238,28 @@ void TerrainManager::collectRenderable(Camera& camera, XYZTileKey currentTileKey
     /* Put current tile to front of disk cache */
     _diskCache.get(currentTileKey.string());
 
-    auto result = _memoryCache.get(currentTileKey.string());
-    if (!result) {
-        std::cerr << "Should not happen 3";
-        std::exit(1);
-    }
-    TerrainNode* currentTile = result.value();
-    currentTile->_lastUsedTimeStamp = std::chrono::system_clock::now();
+    TerrainNode* currentNode = _memoryCache.get(currentTileKey.string()).value();
+    currentNode->_lastUsedTimeStamp = std::chrono::system_clock::now();
 
-    unsigned level = currentTileKey._z;
+    unsigned level = currentTileKey.z();
 
     bool visible = true;
 
     if (level <= 2)
         visible = true;
     else
-        visible = camera.insideViewFrustum(currentTile->_aabbP1, currentTile->_aabbP2);
+        visible = camera.insideViewFrustum(currentNode->_aabbP1, currentNode->_aabbP2);
 
     /* We do horizon culling only from level 2 upwards */
-    if (level >= 2)
-        visible = visible && !currentTile->horizonCulled(camera);
+    if (level >= 3)
+        visible = visible && !currentNode->horizonCulled(camera);
 
     if (!visible)
         return;
 
     _stats.traversedNodes++;
 
-    bool split = shouldSplit(camera, currentTileKey) && level < _maxZoom;
+    bool split = shouldSplit(camera, currentTileKey) && level < ConfigManager::getInstance()->maxZoom();
 
     if (!split) {
         updateMinimumDistanceTileKey(camera, currentTileKey, minimumDistanceTileKey, minimumDistance);
@@ -323,14 +293,14 @@ void TerrainManager::collectRenderable(Camera& camera, XYZTileKey currentTileKey
 void TerrainManager::updateMinimumDistanceTileKey(Camera& camera, XYZTileKey currentTileKey, XYZTileKey& minimumDistanceTileKey, float& minimumDistance)
 {
 
-    glm::vec2 cameraLonLat = MapProjections::toGeodetic2D(camera.position(), _globeRadiiSquared);
+    glm::vec2 cameraLonLat = MapProjections::toGeodetic2D(camera.position(), GlobalConstants::GLOBE_RADII_SQUARED);
     glm::vec2 cameraMerc = MapProjections::webMercator(cameraLonLat);
 
-    float pow2Zoom = (float)(1 << currentTileKey._z);
-    float minLon = (currentTileKey._x) / pow2Zoom;
-    float maxLon = (currentTileKey._x + 1) / pow2Zoom;
-    float minLat = (currentTileKey._y) / pow2Zoom;
-    float maxLat = (currentTileKey._y + 1) / pow2Zoom;
+    float pow2Zoom = (float)(1 << currentTileKey.z());
+    float minLon = (currentTileKey.x()) / pow2Zoom;
+    float maxLon = (currentTileKey.x() + 1) / pow2Zoom;
+    float minLat = (currentTileKey.y()) / pow2Zoom;
+    float maxLat = (currentTileKey.y() + 1) / pow2Zoom;
 
     if (cameraMerc.x >= minLon && cameraMerc.x <= maxLon && cameraMerc.y >= minLat && cameraMerc.y <= maxLat) {
         minimumDistanceTileKey = currentTileKey;
@@ -343,26 +313,26 @@ void TerrainManager::updateMinimumDistanceTileKey(Camera& camera, XYZTileKey cur
  */
 void TerrainManager::requestChildren(XYZTileKey tileKey)
 {
-    requestTile(tileKey.topLeftChild());
-    requestTile(tileKey.topRightChild());
-    requestTile(tileKey.bottomLeftChild());
-    requestTile(tileKey.bottomRightChild());
+    requestNode(tileKey.topLeftChild());
+    requestNode(tileKey.topRightChild());
+    requestNode(tileKey.bottomLeftChild());
+    requestNode(tileKey.bottomRightChild());
 }
 
 /**
  * @brief TerrainManager::requestTile
  * @param tileKey
  */
-void TerrainManager::requestTile(XYZTileKey tileKey)
+void TerrainManager::requestNode(XYZTileKey tileKey)
 {
-    if (!_memoryCache.contains(tileKey.string())
-        && !_loadingTiles.count(tileKey.string())
-        && !_unloadableTileKeys.count(tileKey.string())
-        && !_currentDiskCacheEvictions.count(tileKey.string())) {
+    if (!_memoryCache.contains(tileKey)
+        && !_loadingTiles.count(tileKey)
+        && !_unloadableTileKeys.count(tileKey)
+        && !_currentDiskCacheEvictions.count(tileKey)) {
         _loadingTiles.insert(tileKey.string());
 
-        LoadRequestType requestType = _diskCache.contains(tileKey.string()) ? LOAD_REQUEST_DISK_CACHE : LOAD_REQUEST;
-        bool offlineMode = false;
+        LoadRequestType requestType = _diskCache.contains(tileKey) ? LOAD_REQUEST_DISK_CACHE : LOAD_REQUEST;
+        bool offlineMode = _offlineWait;
         _loadRequestQueues[_currentLoadThread]->push({ tileKey, requestType, offlineMode });
 
         _currentLoadThread = (_currentLoadThread + 1) % _numLoadWorkers;
@@ -377,10 +347,10 @@ void TerrainManager::requestTile(XYZTileKey tileKey)
  */
 bool TerrainManager::allChildrenExistant(XYZTileKey tileKey)
 {
-    return _memoryCache.contains(tileKey.topLeftChild().string())
-        && _memoryCache.contains(tileKey.topRightChild().string())
-        && _memoryCache.contains(tileKey.bottomLeftChild().string())
-        && _memoryCache.contains(tileKey.bottomRightChild().string());
+    return _memoryCache.contains(tileKey.topLeftChild())
+        && _memoryCache.contains(tileKey.topRightChild())
+        && _memoryCache.contains(tileKey.bottomLeftChild())
+        && _memoryCache.contains(tileKey.bottomRightChild());
 }
 
 /**
@@ -391,8 +361,8 @@ bool TerrainManager::allChildrenExistant(XYZTileKey tileKey)
  */
 bool TerrainManager::shouldSplit(Camera& camera, XYZTileKey currentTileKey)
 {
-    float pow2Level = (float)(1 << currentTileKey._z);
-    TerrainNode* tile = _memoryCache.get(currentTileKey.string()).value();
+    float pow2Level = (float)(1 << currentTileKey.z());
+    TerrainNode* tile = _memoryCache.get(currentTileKey).value();
 
     /* Iterate through grid points, check distance */
     for (auto p : tile->_projectedGridPoints) {
@@ -408,19 +378,21 @@ bool TerrainManager::shouldSplit(Camera& camera, XYZTileKey currentTileKey)
     return false;
 }
 
+/**
+ * @brief TerrainManager::computeBaseDistWithLatitude
+ * @param tileKey
+ * @return
+ */
 float TerrainManager::computeBaseDistWithLatitude(XYZTileKey tileKey)
 {
-    float baseDist = glm::sqrt(_globeRadiiSquared.x) * 3.5;
-    float pow2Level = (float)(1 << tileKey._z);
+    float baseDist = GlobalConstants::GLOBE_RADII.x * 3.5;
+    float pow2Level = (float)(1 << tileKey.z());
 
-    if (tileKey._z >= 3 && std::abs(tileKey._y / pow2Level - 0.5f) >= 0.3) {
+    if (tileKey.z() >= 3 && std::abs(tileKey.y() / pow2Level - 0.5f) >= 0.3) {
         baseDist *= 0.52;
-    } else if (tileKey._z >= 3 && std::abs(tileKey._y / pow2Level - 0.5f) >= 0.4) {
+    } else if (tileKey.z() >= 3 && std::abs(tileKey.y() / pow2Level - 0.5f) >= 0.4) {
         baseDist *= 0.41;
     }
-
-    /*if (tileKey._z >= 10)
-        baseDist *= 1.5;*/
 
     return baseDist;
 }
@@ -429,7 +401,7 @@ float TerrainManager::computeBaseDistWithLatitude(XYZTileKey tileKey)
  * @brief TerrainManager::initDiskCache
  *
  * The disk cache is organized as follows:
- * - "path/dem/x_y_z.webp" for webp heightmaps
+ * - "path/heightdata/x_y_z.webp" for webp heightmaps
  * - "path/overlay/x_y_z.jpg" for jpg overlays
  */
 void TerrainManager::initDiskCache()
@@ -446,30 +418,23 @@ void TerrainManager::initDiskCache()
      *      - If it exceeds disk cache capacity, remove until under capacity
      * - Put the tile keys from the temporary list to the in memory disk cache
      */
-    std::string cacheLocation = ConfigManager::getInstance()->_diskCachePath;
-    std::string demFolder = "dem/";
-    std::string overlayFolder = "overlay/";
+    std::string cacheLocation = ConfigManager::getInstance()->diskCachePath();
 
-    if (!std::filesystem::exists(cacheLocation)) {
+    /* Create disk cache folders if they don't exist yet */
+    if (!std::filesystem::exists(cacheLocation))
         std::filesystem::create_directory(cacheLocation);
-    }
 
-    if (!std::filesystem::exists(cacheLocation + demFolder)) {
-        std::filesystem::create_directory(cacheLocation + demFolder);
-    }
+    if (!std::filesystem::exists(cacheLocation + GlobalConstants::HEIGHTDATA_DIR_NAME))
+        std::filesystem::create_directory(cacheLocation + GlobalConstants::HEIGHTDATA_DIR_NAME);
 
-    if (!std::filesystem::exists(cacheLocation + overlayFolder)) {
-        std::filesystem::create_directory(cacheLocation + overlayFolder);
-    }
+    if (!std::filesystem::exists(cacheLocation + GlobalConstants::OVERLAY_DIR_NAME))
+        std::filesystem::create_directory(cacheLocation + GlobalConstants::OVERLAY_DIR_NAME);
 
-    std::unordered_map<std::string, std::string> jpgFiles;
-    std::unordered_map<std::string, std::string> webpFiles;
-
-    std::unordered_map<std::string, std::string> traversed;
+    std::unordered_map<XYZTileKey, std::string> traversed;
 
     /* First traverse overlay images */
     std::regex filePattern(R"(^(\d+)_(\d+)_(\d+)\.(jpg)$)");
-    for (auto& entry : std::filesystem::directory_iterator(cacheLocation + overlayFolder)) {
+    for (auto& entry : std::filesystem::directory_iterator(cacheLocation + GlobalConstants::OVERLAY_DIR_NAME)) {
         auto path = entry.path();
         std::smatch matches;
         std::string filename = path.filename().string();
@@ -477,18 +442,17 @@ void TerrainManager::initDiskCache()
         if (std::regex_match(filename, matches, filePattern)) {
             std::string baseName = matches[1].str() + "_" + matches[2].str() + "_" + matches[3].str();
             std::string tileKey = matches[1].str() + "/" + matches[2].str() + "/" + matches[3].str();
-            if (std::filesystem::exists(cacheLocation + demFolder + baseName + ".webp"))
+            if (std::filesystem::exists(cacheLocation + GlobalConstants::HEIGHTDATA_DIR_NAME + baseName + ".webp"))
                 traversed[tileKey] = baseName;
             else {
-                std::cout << "Remove overlay that has no heightmap " << tileKey << std::endl;
-                std::filesystem::remove(cacheLocation + overlayFolder + baseName + ".jpg");
+                std::filesystem::remove(cacheLocation + GlobalConstants::OVERLAY_DIR_NAME + baseName + ".jpg");
             }
         }
     }
 
     /* Then the heightmap images */
     filePattern = std::regex(R"(^(\d+)_(\d+)_(\d+)\.(webp)$)");
-    for (auto& entry : std::filesystem::directory_iterator(cacheLocation + demFolder)) {
+    for (auto& entry : std::filesystem::directory_iterator(cacheLocation + GlobalConstants::HEIGHTDATA_DIR_NAME)) {
         auto path = entry.path();
         std::smatch matches;
         std::string filename = path.filename().string();
@@ -497,8 +461,7 @@ void TerrainManager::initDiskCache()
             std::string baseName = matches[1].str() + "_" + matches[2].str() + "_" + matches[3].str();
             std::string tileKey = matches[1].str() + "/" + matches[2].str() + "/" + matches[3].str();
             if (!traversed.count(tileKey)) {
-                std::cout << "Remove heightmap that has no overlay" << std::endl;
-                std::filesystem::remove(cacheLocation + demFolder + baseName + ".webp");
+                std::filesystem::remove(cacheLocation + GlobalConstants::HEIGHTDATA_DIR_NAME + baseName + ".webp");
             }
         }
     }
@@ -508,20 +471,22 @@ void TerrainManager::initDiskCache()
         if (diskResult.evicted) {
             auto evictedKey = diskResult.evictedItem.value().first;
             auto evictedFile = traversed[evictedKey];
+            /* Check whether additional policies are in effect */
             while (!checkEviction(evictedKey, nullptr)) {
-                std::cout << "DISK CHECK EVICTION FAILED " << evictedKey << std::endl;
                 diskResult = _diskCache.put(evictedKey, nullptr);
                 evictedKey = diskResult.evictedItem.value().first;
                 evictedFile = traversed[evictedKey];
             }
-            // std::cout << "Inserted for eviction disk cache: " << evictedKey << std::endl;
-            std::cout << "STARTUP EVICT DISK CACHE " << evictedFile << std::endl;
-            std::filesystem::remove(cacheLocation + demFolder + evictedFile + ".webp");
-            std::filesystem::remove(cacheLocation + overlayFolder + evictedFile + ".jpg");
+            /* Remove evicted */
+            std::filesystem::remove(cacheLocation + GlobalConstants::HEIGHTDATA_DIR_NAME + evictedFile + ".webp");
+            std::filesystem::remove(cacheLocation + GlobalConstants::OVERLAY_DIR_NAME + evictedFile + ".jpg");
         }
     }
 }
 
+/**
+ * @brief TerrainManager::processAllDoneQueue
+ */
 void TerrainManager::processAllDoneQueue()
 {
     std::deque<LoadResponse> responses = _doneQueue->popAll();
@@ -535,10 +500,15 @@ void TerrainManager::processAllDoneQueue()
         }
 
         /* Handle potential errors or unloadable tiles */
-        if (response.type == LOAD_UNLOADABLE || response.type == LOAD_TIMEOUT) {
+        if (response.type == LOAD_UNLOADABLE || response.type == LOAD_TIMEOUT || response.type == LOAD_ERROR) {
 
             if (response.type == LOAD_UNLOADABLE)
                 _unloadableTileKeys.insert(response.tileKey.string());
+
+            if (response.type == LOAD_ERROR) {
+                _lastNetworkError = std::chrono::system_clock::now();
+                _offlineWait = true;
+            }
 
             if (response.heightData != nullptr) {
                 delete[] response.heightData;
@@ -546,16 +516,19 @@ void TerrainManager::processAllDoneQueue()
             if (response.overlayData != nullptr) {
                 stbi_image_free(response.overlayData);
             }
-            delete response.tile;
+            delete response.node;
             continue;
-        }
-        initTerrainTile(response);
+        } else
+            initTerrainNode(response);
     }
 }
 
+/**
+ * @brief TerrainManager::processAllUnloadDoneQueue
+ */
 void TerrainManager::processAllUnloadDoneQueue()
 {
-    std::deque<UnloadResponse> responses = _unloadDoneQueue->popAll();
+    std::deque<DiskDeallocationResponse> responses = _unloadDoneQueue->popAll();
 
     for (auto response : responses) {
         _currentDiskCacheEvictions.erase(response.tileKey.string());
@@ -565,54 +538,64 @@ void TerrainManager::processAllUnloadDoneQueue()
     }
 }
 
+/**
+ * @brief TerrainManager::render
+ * @param camera
+ * @param wireframe
+ * @param aabb
+ * @param collision
+ * @param verticalCollisionOffset
+ */
 void TerrainManager::render(Camera& camera, bool wireframe, bool aabb, bool& collision, float& verticalCollisionOffset)
 {
-
     /* Reset stats */
     _stats.drawCalls = 0;
     _stats.renderedTriangles = 0;
     _stats.deepestZoomLevel = 0;
-    _stats.visibleTiles = 0;
+    _stats.visibleNodes = 0;
     _stats.traversedNodes = 0;
+
+    /* Check if still waiting for network error */
+    if (_offlineWait) {
+        auto now = std::chrono::system_clock::now();
+        if (std::abs(std::chrono::duration_cast<std::chrono::seconds>(now - _lastNetworkError).count()) > 5) {
+            _offlineWait = false;
+        }
+    }
 
     /* Process concurrent message queues */
     processAllDoneQueue();
     processAllUnloadDoneQueue();
 
     /* Wait until the root node is loaded */
-    if (!_memoryCache.contains("0/0/0"))
+    if (!_memoryCache.contains(XYZTileKey(0, 0, 0)))
         return;
 
-    std::queue<std::string> visibleTiles;
-    XYZTileKey minimumDistanceTileKey("0/0/0");
+    std::queue<std::string> visibleNodes;
+    XYZTileKey minimumDistanceTileKey(0, 0, 0);
     float minimumDistance = 99999.9f;
-    collectRenderable(camera, XYZTileKey(0, 0, 0), visibleTiles, minimumDistanceTileKey, minimumDistance);
+    collectRenderable(camera, XYZTileKey(0, 0, 0), visibleNodes, minimumDistanceTileKey, minimumDistance);
 
     collision = checkCollision(camera, minimumDistanceTileKey, verticalCollisionOffset);
 
-    _stats.visibleTiles = visibleTiles.size();
+    _stats.visibleNodes = visibleNodes.size();
 
     /* Render all visible tiles (front-to-back) */
-    while (!visibleTiles.empty()) {
-        auto topKey = visibleTiles.front();
-        visibleTiles.pop();
+    while (!visibleNodes.empty()) {
+        auto topKey = visibleNodes.front();
+        visibleNodes.pop();
 
         auto result = _memoryCache.get(topKey);
-        TerrainNode* tile;
-        if (!result) {
-            std::cerr << "Should not happen";
-            std::exit(1);
-        }
-        tile = result.value();
+        TerrainNode* node = result.value();
 
-        _stats.deepestZoomLevel = std::max(tile->_xyzTileKey._z, _stats.deepestZoomLevel);
+        _stats.deepestZoomLevel = std::max(node->_xyzTileKey.z(), _stats.deepestZoomLevel);
 
-        if (XYZTileKey(topKey)._z <= 9) // 8
-            renderTile(camera, tile, LOW, wireframe, aabb);
-        else if (XYZTileKey(topKey)._z <= 11) // 10
-            renderTile(camera, tile, MEDIUM, wireframe, aabb);
+        if (XYZTileKey(topKey).z() <= 9)
+            renderNode(camera, node, LOW, wireframe, aabb);
+        else if (XYZTileKey(topKey).z() <= 11)
+            renderNode(camera, node, MEDIUM, wireframe, aabb);
         else
-            renderTile(camera, tile, HIGH, wireframe, aabb);
+            renderNode(camera, node, HIGH, wireframe, aabb);
     }
 
     /* Render north and south poles */
@@ -639,10 +622,10 @@ void TerrainManager::render(Camera& camera, bool wireframe, bool aabb, bool& col
 
     _stats.drawCalls += 2;
     _stats.renderedTriangles += _poleMesh->_numRadians;
-
     _stats.currentlyRequested = _numberOfRequestedTiles;
     _stats.numberOfDiskCacheEntries = _diskCache.size();
     _stats.numberOfNodes = _memoryCache.size();
+    _stats.waitOffline = _offlineWait;
 }
 
 /**
@@ -650,9 +633,9 @@ void TerrainManager::render(Camera& camera, bool wireframe, bool aabb, bool& col
  * @param camera
  * @param tile
  */
-void TerrainManager::renderTile(Camera& camera, TerrainNode* tile, TileResolution resolution, bool wireframe, bool aabb)
+void TerrainManager::renderNode(Camera& camera, TerrainNode* node, TileResolution resolution, bool wireframe, bool aabb)
 {
-    unsigned zoom = tile->_xyzTileKey._z;
+    unsigned zoom = node->_xyzTileKey.z();
 
     unsigned sideLength;
     GridMesh* gridMesh;
@@ -680,16 +663,16 @@ void TerrainManager::renderTile(Camera& camera, TerrainNode* tile, TileResolutio
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, skirtMesh->_ebo);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, tile->_overlayTextureId);
+    glBindTexture(GL_TEXTURE_2D, node->_overlayTextureId);
 
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, tile->_heightmapTextureId);
+    glBindTexture(GL_TEXTURE_2D, node->_heightmapTextureId);
 
     _skirtShader.use();
 
     _skirtShader.setFloat("tileWidth", sideLength);
     _skirtShader.setFloat("zoom", zoom);
-    _skirtShader.setVec2("tileKey", glm::vec2((float)tile->_xyzTileKey._x, (float)tile->_xyzTileKey._y));
+    _skirtShader.setVec2("tileKey", glm::vec2((float)node->_xyzTileKey.x(), (float)node->_xyzTileKey.y()));
 
     if (wireframe) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -718,7 +701,7 @@ void TerrainManager::renderTile(Camera& camera, TerrainNode* tile, TileResolutio
 
     _terrainShader.setFloat("tileWidth", sideLength);
     _terrainShader.setFloat("zoom", zoom);
-    _terrainShader.setVec2("tileKey", glm::vec2((float)tile->_xyzTileKey._x, (float)tile->_xyzTileKey._y));
+    _terrainShader.setVec2("tileKey", glm::vec2((float)node->_xyzTileKey.x(), (float)node->_xyzTileKey.y()));
 
     if (wireframe) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -730,9 +713,9 @@ void TerrainManager::renderTile(Camera& camera, TerrainNode* tile, TileResolutio
 
     if (aabb) {
         _aabbShader.use();
-        _aabbShader.setVec3("center", (tile->_aabbP1 + tile->_aabbP2) / 2.0f);
-        glm::vec3 size = (tile->_aabbP2 - tile->_aabbP1);
-        glm::vec3 center = (tile->_aabbP1 + tile->_aabbP2) / 2.0f;
+        _aabbShader.setVec3("center", (node->_aabbP1 + node->_aabbP2) / 2.0f);
+        glm::vec3 size = (node->_aabbP2 - node->_aabbP1);
+        glm::vec3 center = (node->_aabbP1 + node->_aabbP2) / 2.0f;
         glm::mat4 transform = glm::translate(glm::mat4(1), center) * glm::scale(glm::mat4(1), size);
         _aabbShader.setMat4("model", transform);
 
@@ -748,6 +731,7 @@ void TerrainManager::renderTile(Camera& camera, TerrainNode* tile, TileResolutio
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         _aabbMesh->render();
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
         _stats.drawCalls++;
         _stats.renderedTriangles += 12;
     }
@@ -758,18 +742,27 @@ void TerrainManager::renderTile(Camera& camera, TerrainNode* tile, TileResolutio
     _stats.renderedTriangles += (sideLength * sideLength * 2) + (sideLength * 4 * 2);
 }
 
+/**
+ * @brief TerrainManager::checkCollision
+ * @param camera
+ * @param minimumDistanceTileKey
+ * @param verticalCollisionOffset
+ * @return
+ */
 bool TerrainManager::checkCollision(Camera& camera, XYZTileKey minimumDistanceTileKey, float& verticalCollisionOffset)
 {
 
-    auto result = _memoryCache.get(minimumDistanceTileKey.string());
-    TerrainNode* currentTile = result.value();
-    glm::vec2 lonlat = MapProjections::toGeodetic2D(camera.position(), _globeRadiiSquared);
-    unsigned minimumDistZoom = minimumDistanceTileKey._z;
+    TerrainNode* currentNode = _memoryCache.get(minimumDistanceTileKey.string()).value();
+
+    glm::vec2 lonlat = MapProjections::toGeodetic2D(camera.position(), GlobalConstants::GLOBE_RADII_SQUARED);
+
+    unsigned minimumDistZoom = minimumDistanceTileKey.z();
     float minDistZoomPow2 = (float)(1 << minimumDistZoom);
-    float minLon = (minimumDistanceTileKey._x) / minDistZoomPow2;
-    float maxLon = (minimumDistanceTileKey._x + 1) / minDistZoomPow2;
-    float minLat = (minimumDistanceTileKey._y) / minDistZoomPow2;
-    float maxLat = (minimumDistanceTileKey._y + 1) / minDistZoomPow2;
+
+    float minLon = (minimumDistanceTileKey.x()) / minDistZoomPow2;
+    float maxLon = (minimumDistanceTileKey.x() + 1) / minDistZoomPow2;
+    float minLat = (minimumDistanceTileKey.y()) / minDistZoomPow2;
+    float maxLat = (minimumDistanceTileKey.y() + 1) / minDistZoomPow2;
 
     glm::vec2 camMerc = MapProjections::webMercator(lonlat);
     float heightX = ((camMerc.x - minLon) / (maxLon - minLon));
@@ -778,26 +771,31 @@ bool TerrainManager::checkCollision(Camera& camera, XYZTileKey minimumDistanceTi
 
     verticalCollisionOffset = 0.0;
 
+    /* Check if heightmap coordinates are inside bounds */
     if (heightX >= 0 && heightX <= 1 && heightY >= 0 && heightY <= 1) {
 
         /* Get nearest height value.
          * This could be improved in the future with bilinear interpolation. */
-        float height = currentTile->getScaledHeight(heightX * 511, heightY * 511);
-
-        glm::vec3 projected = MapProjections::geodeticToCartesian(_globeRadiiSquared, glm::vec3(lonLatTex.x, height + 0.04, lonLatTex.y));
+        float height = currentNode->getScaledHeight(heightX * 511, heightY * 511);
+        glm::vec3 projected = MapProjections::geodeticToCartesian(GlobalConstants::GLOBE_RADII_SQUARED, glm::vec3(lonLatTex.x, height + 0.04, lonLatTex.y));
 
         float distCamera = glm::length(camera.position());
         float distHeight = glm::length(projected);
 
         if (glm::length(projected) > distCamera) {
+            camera.verticalCollisionOffset = distHeight - distCamera;
             verticalCollisionOffset = distHeight - distCamera;
             return true;
         }
-        return false;
     }
     return false;
 }
 
+/**
+ * @brief TerrainManager::hasChildren
+ * @param tileKey
+ * @return
+ */
 bool TerrainManager::hasChildren(XYZTileKey tileKey)
 {
     return _memoryCache.contains(tileKey.topLeftChild().string())
@@ -806,8 +804,14 @@ bool TerrainManager::hasChildren(XYZTileKey tileKey)
         || _memoryCache.contains(tileKey.bottomRightChild().string());
 }
 
+/**
+ * @brief TerrainManager::shutdown
+ */
 void TerrainManager::shutdown()
 {
+    /* TODO: For now, I will just let it crash
+     * instead of cleaning up nicely */
+
     /* Shut down worker threads */
     /*_unloadDoneQueue->push({});
     for (auto* q : _loadRequestQueues) {

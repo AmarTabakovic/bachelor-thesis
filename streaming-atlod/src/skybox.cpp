@@ -1,9 +1,11 @@
 #include "skybox.h"
 #include "../stb_image.h"
+#include "configmanager.h"
 #include "util.h"
 
 Skybox::Skybox()
-    : _shader("../src/glsl/skybox.vert", "../src/glsl/skybox.frag")
+    : _shader((ConfigManager::getInstance()->dataPath() + "glsl/skybox.vert").c_str(),
+        (ConfigManager::getInstance()->dataPath() + "glsl/skybox.frag").c_str())
 {
 }
 
